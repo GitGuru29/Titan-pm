@@ -1,0 +1,71 @@
+name: Build package repository
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout titanpkg
+        uses: actions/checkout@v4
+
+      - name: Checkout ArchTitan sources
+        uses: actions/checkout@v4
+        with:
+          repository: GitGuru29/ArchTitan-OS
+          path: ArchTitan-OS
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Reproducible timestamp
+        run: echo "SOURCE_DATE_EPOCH=$(git -C ArchTitan-OS log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      - name: Import signing key
+        if: env.GPG_PRIVATE_KEY != ''
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Build packages and index
+        env:
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+        run: |
+          args=(--source-root ArchTitan-OS/airootfs --arch x86_64 --repo dist/repo)
+          [[ -n "${GPG_KEY_ID:-}" ]] && args+=(--sign-key "$GPG_KEY_ID" --sign-packages)
+          ./packaging/build-packages.sh "${args[@]}"
+
+      - name: Static-host metadata
+        run: |
+          touch dist/repo/.nojekyll
+          # Keep a stable, non-dereferenced index name for simple static hosts.
+          ls -la dist/repo
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/repo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
