@@ -33,8 +33,9 @@ dev = ["pytest>=7", "ruff>=0.4", "mypy>=1.8"]
 titanpkg = "titanpkg.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/YOURNAME/titanpkg"
-Documentation = "https://github.com/YOURNAME/titanpkg/tree/main/docs"
+Homepage = "https://github.com/GitGuru29/Titan-pm"
+Documentation = "https://github.com/GitGuru29/Titan-pm/tree/main/docs"
+Repository = "https://github.com/GitGuru29/Titan-pm"
 
 [tool.setuptools.packages.find]
 where = ["src"]

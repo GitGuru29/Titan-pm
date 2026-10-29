@@ -9,6 +9,8 @@ touching the pacman database and without requiring a paid server.
 > **Status:** scaffold / design phase. The interface, package format and repo
 > layout below are the contract. Implementation lands in the phases described in
 > [Implementation Plan](#implementation-plan).
+>
+> **Repository:** <https://github.com/GitGuru29/Titan-pm>
 
 ---
 

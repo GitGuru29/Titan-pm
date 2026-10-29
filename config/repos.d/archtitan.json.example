@@ -1,9 +1,9 @@
 {
   "name": "archtitan",
-  "server": "https://YOURNAME.github.io/titanpkg-repo",
+  "server": "https://GitGuru29.github.io/Titan-pm",
   "enabled": true,
   "siglevel": "required",
   "servers": [
-    "https://YOURNAME.github.io/titanpkg-repo"
+    "https://GitGuru29.github.io/Titan-pm"
   ]
 }
