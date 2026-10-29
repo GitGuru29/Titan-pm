@@ -1,0 +1,20 @@
+{
+  "name": "titan-quicksettings",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Slide-out quick settings and notification drawer",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/subsystems/titan-quicksettings",
+  "license": ["Apache-2.0"],
+  "depends": ["titan-ui"],
+  "provides": ["titan-quicksettings"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/titan-quicksettings",
+    "usr/local/bin/titan-quicksettings-toggle",
+    "usr/local/bin/titan-cava"
+  ]
+}

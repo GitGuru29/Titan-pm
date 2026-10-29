@@ -1,0 +1,21 @@
+{
+  "name": "titan-browser",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Titan Browser — Qt6 WebEngine browser with native ad blocking",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/titan-browser-source",
+  "license": ["Apache-2.0"],
+  "depends": ["titan-ui"],
+  "provides": ["titan-browser", "titanbrowser"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/titanbrowser",
+    "usr/local/bin/titan-browser",
+    "usr/share/applications/titanbrowser.desktop",
+    "usr/share/icons/hicolor/**/titanbrowser.*"
+  ]
+}

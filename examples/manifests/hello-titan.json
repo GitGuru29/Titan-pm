@@ -1,0 +1,20 @@
+{
+  "name": "hello-titan",
+  "version": "0.1.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Minimal example package for testing the titanpkg pipeline",
+  "url": "https://example.invalid/hello-titan",
+  "license": ["MIT"],
+  "depends": [],
+  "provides": ["hello-titan"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/hello-titan",
+    "usr/local/share/hello-titan/motd"
+  ],
+  "install": "examples/scripts/hello-titan.install"
+}

@@ -1,0 +1,21 @@
+{
+  "name": "titan-settings",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "ArchTitan unified Qt system control center",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/archtitan-settings",
+  "license": ["Apache-2.0"],
+  "depends": [],
+  "provides": ["titan-settings", "archtitan-settings"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/archtitan-settings",
+    "usr/local/bin/titan-settings",
+    "usr/share/applications/archtitan-settings.desktop",
+    "usr/share/icons/hicolor/**/archtitan-settings.*"
+  ]
+}

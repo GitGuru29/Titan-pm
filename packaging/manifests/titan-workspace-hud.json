@@ -1,0 +1,16 @@
+{
+  "name": "titan-workspace-hud",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Mission Control style workspace overview HUD",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/subsystems/titan-workspace-hud",
+  "license": ["Apache-2.0"],
+  "depends": ["titan-ui"],
+  "provides": ["titan-workspace-hud"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": ["usr/local/bin/titan-workspace-hud"]
+}

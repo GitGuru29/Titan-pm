@@ -1,0 +1,21 @@
+{
+  "name": "titan-media-hud",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Dynamic Island media overlay and context/GPU HUD modules",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/subsystems/titan-media-hud",
+  "license": ["Apache-2.0"],
+  "depends": ["titan-ui"],
+  "provides": ["titan-media-hud"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/titan-media-hud",
+    "usr/local/bin/titan-hud-context",
+    "usr/local/bin/titan-hud-gpu",
+    "usr/local/bin/titan-audio-monitor"
+  ]
+}

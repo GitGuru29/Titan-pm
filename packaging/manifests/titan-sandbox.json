@@ -1,0 +1,21 @@
+{
+  "name": "titan-sandbox",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Namespace/seccomp application sandbox daemon",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/subsystems/titan-sandbox",
+  "license": ["Apache-2.0"],
+  "depends": [],
+  "provides": ["titan-sandbox"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": ["usr/local/bin/titan-sandboxd"],
+  "files": [
+    "usr/local/bin/titan-sandboxd",
+    "usr/local/bin/titan-exec-hook",
+    "etc/systemd/system/titan-sandboxd.service"
+  ],
+  "install": "packaging/scripts/titan-sandbox.install"
+}

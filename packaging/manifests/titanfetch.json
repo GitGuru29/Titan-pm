@@ -1,0 +1,19 @@
+{
+  "name": "titanfetch",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "High-performance system information CLI and glassmorphic HUD",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/titanfetch-src",
+  "license": ["Apache-2.0"],
+  "depends": ["titan-ui"],
+  "provides": ["titanfetch"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/titanfetch",
+    "usr/share/applications/titanfetch.desktop"
+  ]
+}

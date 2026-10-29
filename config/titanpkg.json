@@ -1,0 +1,19 @@
+{
+  "db": "/var/lib/titanpkg",
+  "cache": "/var/cache/titanpkg",
+  "config_dir": "/etc/titanpkg",
+  "repos_dir": "/etc/titanpkg/repos.d",
+  "keyring": "/etc/titanpkg/trusted.gpg",
+  "siglevel": "required",
+  "timeout": 30,
+  "allowed_prefixes": [
+    "usr/local/",
+    "usr/lib/qt6/qml/ArchTitan/",
+    "usr/share/archtitan/",
+    "etc/archtitan/",
+    "etc/skel/",
+    "etc/systemd/system/",
+    "var/lib/archtitan/",
+    "opt/archtitan/"
+  ]
+}

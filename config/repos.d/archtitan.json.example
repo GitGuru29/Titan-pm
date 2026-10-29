@@ -1,0 +1,9 @@
+{
+  "name": "archtitan",
+  "server": "https://YOURNAME.github.io/titanpkg-repo",
+  "enabled": true,
+  "siglevel": "required",
+  "servers": [
+    "https://YOURNAME.github.io/titanpkg-repo"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "titan-powermenu",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Qt6 LayerShell power overlay with confirmation interlock",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/subsystems/titan-powermenu",
+  "license": ["Apache-2.0"],
+  "depends": ["titan-ui"],
+  "provides": ["titan-powermenu"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": ["usr/local/bin/titan-powermenu"]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "archtitan-themes",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "ArchTitan colour themes and wallpaper/theme helper scripts",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS",
+  "license": ["Apache-2.0"],
+  "depends": ["titan-ui"],
+  "provides": ["archtitan-themes"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/share/archtitan/themes/*.json",
+    "usr/local/bin/titan-theme",
+    "usr/local/bin/titan-waybar-theme",
+    "usr/local/bin/titan-set-wallpaper",
+    "usr/local/bin/titan-wallpaper-restore",
+    "usr/local/bin/titan-wallpaper-picker",
+    "usr/local/bin/titan-wallpaper-picker-ui"
+  ]
+}

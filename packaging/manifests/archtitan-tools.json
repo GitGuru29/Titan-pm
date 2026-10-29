@@ -1,0 +1,26 @@
+{
+  "name": "archtitan-tools",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Waybar helpers, screenshot/recorder and power-profile utilities",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS",
+  "license": ["Apache-2.0"],
+  "depends": [],
+  "provides": ["archtitan-tools"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/titan-screenshot",
+    "usr/local/bin/titan-recorder",
+    "usr/local/bin/titan-git-hud",
+    "usr/local/bin/titan-cycle-power",
+    "usr/local/bin/archtitan-cycle-power",
+    "usr/local/bin/titan-bar-daemon",
+    "usr/local/bin/titan-bar-media",
+    "usr/local/bin/titan-bar-next",
+    "usr/local/bin/titan-bar-prev"
+  ]
+}

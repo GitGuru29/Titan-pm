@@ -1,0 +1,25 @@
+{
+  "name": "archtitan-guard",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Display-manager and package-transaction integrity guard",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/subsystems/archtitan-guard",
+  "license": ["Apache-2.0"],
+  "depends": [],
+  "provides": ["archtitan-guard"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/share/archtitan/immutable/archtitan-guard",
+    "usr/share/archtitan/immutable/archtitan-immutable-guard.service",
+    "usr/share/archtitan/immutable/archtitan-session-guard.hook",
+    "usr/local/bin/archtitan-session-guard",
+    "usr/local/bin/archtitan-apply-immutable",
+    "usr/local/bin/archtitan-enable-postinstall",
+    "etc/systemd/system/archtitan-immutable-guard.service"
+  ],
+  "install": "packaging/scripts/archtitan-guard.install"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "titan-ui",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Titan Design Language QML module and shared library",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/titan-ui",
+  "license": ["Apache-2.0"],
+  "depends": [],
+  "provides": ["titan-ui"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/lib/qt6/qml/ArchTitan/TitanUI/**",
+    "usr/lib/libTitanUI.so*",
+    "etc/skel/.config/archtitan/theme.json"
+  ]
+}

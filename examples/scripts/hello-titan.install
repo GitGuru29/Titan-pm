@@ -1,0 +1,11 @@
+post_install() {
+  echo "hello-titan installed: $TITANPKG_VERSION"
+}
+
+post_upgrade() {
+  echo "hello-titan upgraded to: $TITANPKG_VERSION"
+}
+
+post_remove() {
+  echo "hello-titan removed"
+}

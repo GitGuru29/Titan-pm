@@ -1,0 +1,28 @@
+{
+  "name": "titan-hwm",
+  "version": "3.1.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Titan Hardware Manager — cgroup v2 workload orchestrator",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/titan-hwm-v3",
+  "license": ["Apache-2.0"],
+  "depends": [],
+  "provides": ["titan-hwm"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [
+    "etc/titan-hwm/config"
+  ],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/titan-hwm",
+    "usr/local/bin/titan-hwm-daemon",
+    "usr/local/bin/titan-hwm-waybar",
+    "usr/local/bin/titan-thm-first-run",
+    "etc/systemd/system/titan-hwm.service",
+    "etc/systemd/system/archtitan.slice",
+    "etc/titan-hwm/config",
+    "etc/skel/.config/titan-hwm/config"
+  ],
+  "install": "packaging/scripts/titan-hwm.install"
+}

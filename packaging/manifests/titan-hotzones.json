@@ -1,0 +1,20 @@
+{
+  "name": "titan-hotzones",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Edge-dwell hotzone daemon and radial progress OSD",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/subsystems/titan-hotzones",
+  "license": ["Apache-2.0"],
+  "depends": ["titan-ui"],
+  "provides": ["titan-hotzones"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": ["etc/archtitan/hotzones.toml"],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/titan-hotzones",
+    "usr/local/bin/titan-zone-osd",
+    "etc/archtitan/hotzones.toml"
+  ]
+}

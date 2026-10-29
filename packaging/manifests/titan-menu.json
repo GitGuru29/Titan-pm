@@ -1,0 +1,16 @@
+{
+  "name": "titan-menu",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Native application menu and quick action launcher",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/subsystems/titan-menu",
+  "license": ["Apache-2.0"],
+  "depends": ["titan-ui"],
+  "provides": ["titan-menu"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": ["usr/local/bin/titan-menu"]
+}

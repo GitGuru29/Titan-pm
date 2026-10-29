@@ -1,0 +1,19 @@
+{
+  "name": "titan-spotlight",
+  "version": "1.0.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Native Spotlight-style launcher, calculator and clipboard picker",
+  "url": "https://github.com/GitGuru29/ArchTitan-OS/tree/main/subsystems/titan-spotlight",
+  "license": ["Apache-2.0"],
+  "depends": ["titan-ui"],
+  "provides": ["titan-spotlight", "rofi"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/titan-spotlight",
+    "usr/local/bin/rofi"
+  ]
+}
