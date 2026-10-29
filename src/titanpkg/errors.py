@@ -19,6 +19,10 @@ class UsageError(TitanError):
     exit_code = 2
 
 
+class ValidationError(UsageError):
+    """Malformed metadata, dependency or repository document."""
+
+
 class ResolutionError(TitanError):
     """Dependencies, conflicts or versions could not be resolved."""
 
