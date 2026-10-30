@@ -13,6 +13,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -154,7 +155,13 @@ class Keyring:
             raise SecurityError(f"failed to list trusted keys: {detail}")
         return _parse_gpg_colon_keys(proc.stdout)
 
-    def verify_file(self, data_path: Path, sig_path: Path) -> str:
+    def verify_file(
+        self,
+        data_path: Path,
+        sig_path: Path,
+        *,
+        trusted_fingerprints: Sequence[str] = (),
+    ) -> str:
         """Verify ``sig_path`` against ``data_path``; return signer fingerprint."""
         if not self.keyring_path.exists() or self.keyring_path.stat().st_size == 0:
             raise SecurityError(
@@ -183,21 +190,40 @@ class Keyring:
         )
         goodsig = False
         fingerprint = ""
+        primary_fpr = ""
         for line in proc.stdout.splitlines():
             if line.startswith("[GNUPG:] GOODSIG "):
                 goodsig = True
             elif line.startswith("[GNUPG:] VALIDSIG "):
                 parts = line.split()
                 if len(parts) >= 3:
-                    fingerprint = parts[2]
+                    fingerprint = parts[2].upper()
+                if len(parts) >= 12:
+                    primary_fpr = parts[11].upper()
         if proc.returncode != 0 or not goodsig or not fingerprint:
             detail = (proc.stderr or proc.stdout).strip()
             raise SecurityError(
                 f"GPG signature verification failed for {data_path.name}: {detail}"
             )
+        if trusted_fingerprints:
+            allowed_fprs = {fpr.replace(" ", "").upper() for fpr in trusted_fingerprints}
+            if fingerprint not in allowed_fprs and (
+                not primary_fpr or primary_fpr not in allowed_fprs
+            ):
+                raise SecurityError(
+                    f"untrusted signing key fingerprint {fingerprint} for {data_path.name}; "
+                    f"not in repository trusted_fingerprints"
+                )
         return fingerprint
 
-    def verify_bytes(self, data: bytes, sig_bytes: bytes, *, label: str = "payload") -> str:
+    def verify_bytes(
+        self,
+        data: bytes,
+        sig_bytes: bytes,
+        *,
+        label: str = "payload",
+        trusted_fingerprints: Sequence[str] = (),
+    ) -> str:
         """Verify detached signature bytes against ``data`` before parsing."""
         self._prepare_homedir()
         with tempfile.TemporaryDirectory(
@@ -209,7 +235,11 @@ class Keyring:
             sig_path = tmp_root / f"{label}.sig"
             data_path.write_bytes(data)
             sig_path.write_bytes(sig_bytes)
-            return self.verify_file(data_path, sig_path)
+            return self.verify_file(
+                data_path,
+                sig_path,
+                trusted_fingerprints=trusted_fingerprints,
+            )
 
 
 def _parse_gpg_colon_keys(output: str) -> list[KeyInfo]:
@@ -311,6 +341,7 @@ class RepositoryIndex:
     generated: str
     packages: Mapping[str, RepoPackageSeries]
     format: int = 1
+    expires: str = ""
 
     @classmethod
     def from_dict(
@@ -336,6 +367,9 @@ class RepositoryIndex:
         generated = value.get("generated", "")
         if not isinstance(generated, str):
             raise ValidationError("repository index 'generated' must be a string")
+        expires = value.get("expires", "")
+        if not isinstance(expires, str):
+            raise ValidationError("repository index 'expires' must be a string")
 
         raw_packages = value.get("packages", {})
         if not isinstance(raw_packages, Mapping):
@@ -377,6 +411,7 @@ class RepositoryIndex:
             repo=repo_name,
             generated=generated,
             packages=parsed_packages,
+            expires=expires,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -614,9 +649,25 @@ def _verify_index_signature(
         return sig_bytes
 
     keyring.verify_bytes(
-        index_bytes, sig_bytes, label=f"index-{repo.name}.json"
+        index_bytes,
+        sig_bytes,
+        label=f"index-{repo.name}.json",
+        trusted_fingerprints=repo.trusted_fingerprints,
     )
     return sig_bytes
+
+
+def _parse_iso_utc(value: str) -> datetime | None:
+    if not value:
+        return None
+    norm = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        dt = datetime.fromisoformat(norm)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _check_anti_replay(
@@ -631,6 +682,37 @@ def _check_anti_replay(
             f"incoming index timestamp {incoming_generated!r} is older than "
             f"cached timestamp {cached_generated!r}"
         )
+
+
+def _check_index_freshness(
+    repo: RepoConfig,
+    index: RepositoryIndex,
+    *,
+    now: datetime | None = None,
+) -> None:
+    """Reject expired or frozen repository indexes (anti-freeze attack)."""
+    current = now or datetime.now(timezone.utc)
+    if index.expires:
+        exp_dt = _parse_iso_utc(index.expires)
+        if exp_dt is None:
+            raise SecurityError(
+                f"invalid expires timestamp {index.expires!r} in repository {repo.name!r}"
+            )
+        if current > exp_dt:
+            raise SecurityError(
+                f"freeze attack or expired index for repository {repo.name!r}: "
+                f"index expired at {index.expires}"
+            )
+    if repo.max_index_age_days > 0 and index.generated:
+        gen_dt = _parse_iso_utc(index.generated)
+        if gen_dt is not None:
+            age_days = (current - gen_dt).total_seconds() / 86400.0
+            if age_days > repo.max_index_age_days:
+                raise SecurityError(
+                    f"freeze attack or stale index for repository {repo.name!r}: "
+                    f"generated at {index.generated} ({age_days:.1f} days old > "
+                    f"max_index_age_days={repo.max_index_age_days})"
+                )
 
 
 def sync_repo(
@@ -678,6 +760,7 @@ def sync_repo(
             )
             if not allow_rollback:
                 _check_anti_replay(repo.name, cached_generated, index.generated)
+            _check_index_freshness(repo, index)
 
             atomic_write_bytes(cache_file, raw_bytes, mode=0o644)
             if sig_bytes is not None:
@@ -830,11 +913,19 @@ def download_package(
         ):
             if repo.siglevel == "required":
                 if sig_destination.exists():
-                    kr.verify_file(destination, sig_destination)
+                    kr.verify_file(
+                        destination,
+                        sig_destination,
+                        trusted_fingerprints=repo.trusted_fingerprints,
+                    )
                     return destination
             elif repo.siglevel == "optional":
                 if sig_destination.exists() and kr.has_keys():
-                    kr.verify_file(destination, sig_destination)
+                    kr.verify_file(
+                        destination,
+                        sig_destination,
+                        trusted_fingerprints=repo.trusted_fingerprints,
+                    )
                 return destination
             else:
                 return destination
@@ -880,7 +971,11 @@ def download_package(
                 if sig_bytes is not None:
                     atomic_write_bytes(sig_destination, sig_bytes, mode=0o644)
                     if repo.siglevel == "required" or kr.has_keys():
-                        kr.verify_file(temp_path, sig_destination)
+                        kr.verify_file(
+                            temp_path,
+                            sig_destination,
+                            trusted_fingerprints=repo.trusted_fingerprints,
+                        )
 
             os.chmod(temp_path, 0o644)
             os.replace(temp_path, destination)

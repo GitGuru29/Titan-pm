@@ -226,6 +226,7 @@ METADATA_FIELDS = {
     "installed_size",
     "build_date",
     "files_count",
+    "script_sha256",
 }
 
 
@@ -250,6 +251,7 @@ class PackageMetadata:
     installed_size: int = 0
     build_date: str = ""
     files_count: int = 0
+    script_sha256: str | None = None
 
     def __post_init__(self) -> None:
         validate_name(self.name)
@@ -289,6 +291,12 @@ class PackageMetadata:
             raise ValidationError("files_count must be a non-negative integer")
         if not isinstance(self.build_date, str):
             raise ValidationError("build_date must be a string")
+        if self.script_sha256 is not None:
+            if not isinstance(self.script_sha256, str) or not SHA256_RE.match(
+                self.script_sha256.lower()
+            ):
+                raise ValidationError(f"invalid script_sha256: {self.script_sha256!r}")
+            object.__setattr__(self, "script_sha256", self.script_sha256.lower())
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> PackageMetadata:
@@ -322,10 +330,11 @@ class PackageMetadata:
             installed_size=value.get("installed_size", 0),
             build_date=value.get("build_date", ""),
             files_count=value.get("files_count", 0),
+            script_sha256=value.get("script_sha256"),
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "format": self.format,
             "name": self.name,
             "version": self.version,
@@ -344,6 +353,9 @@ class PackageMetadata:
             "build_date": self.build_date,
             "files_count": self.files_count,
         }
+        if self.script_sha256 is not None:
+            out["script_sha256"] = self.script_sha256
+        return out
 
 
 Metadata = PackageMetadata

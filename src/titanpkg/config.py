@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import posixpath
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,6 +55,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "arch": "x86_64",
     "allowed_prefixes": list(DEFAULT_ALLOWED_PREFIXES),
     "protected_packages": list(DEFAULT_PROTECTED_PACKAGES),
+    "max_index_age_days": 0,
 }
 
 CONFIG_KEYS = frozenset(DEFAULT_CONFIG)
@@ -68,7 +70,10 @@ _ENV_OVERRIDES = {
     "TITANPKG_ARCH": "arch",
     "TITANPKG_ALLOWED_PREFIXES": "allowed_prefixes",
     "TITANPKG_PROTECTED_PACKAGES": "protected_packages",
+    "TITANPKG_MAX_INDEX_AGE_DAYS": "max_index_age_days",
 }
+
+FINGERPRINT_RE = re.compile(r"^[0-9A-Fa-f]{40}([0-9A-Fa-f]{24})?$")
 
 
 def _normalize_root(root: str | os.PathLike[str]) -> Path:
@@ -182,6 +187,7 @@ class Config:
     timeout: float = 30.0
     allowed_prefixes: tuple[str, ...] = DEFAULT_ALLOWED_PREFIXES
     protected_packages: tuple[str, ...] = DEFAULT_PROTECTED_PACKAGES
+    max_index_age_days: int = 0
     arch: str = "x86_64"
     source: Path | None = None
 
@@ -195,6 +201,10 @@ class Config:
         for pkg_name in self.protected_packages:
             if not isinstance(pkg_name, str) or not NAME_RE.match(pkg_name):
                 raise ValidationError(f"invalid protected package name: {pkg_name!r}")
+        if isinstance(self.max_index_age_days, bool) or not isinstance(
+            self.max_index_age_days, int
+        ) or self.max_index_age_days < 0:
+            raise ValidationError("max_index_age_days must be a non-negative integer")
         validate_arch(self.arch)
 
 
@@ -234,6 +244,39 @@ def _coerce_protected_packages(value: Any) -> tuple[str, ...]:
             raise ValidationError(f"invalid protected package name: {item!r}")
         if item not in out:
             out.append(item)
+    return tuple(out)
+
+
+def _coerce_max_age_days(value: Any) -> int:
+    if isinstance(value, bool):
+        raise ValidationError("max_index_age_days must be an integer")
+    try:
+        days = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValidationError(f"invalid max_index_age_days: {value!r}") from exc
+    if days < 0:
+        raise ValidationError("max_index_age_days must be >= 0")
+    return days
+
+
+def _coerce_fingerprints(value: Any) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        value = [part.strip() for part in value.split(",") if part.strip()]
+    if not isinstance(value, (list, tuple)):
+        raise ValidationError("trusted_fingerprints must be a list of hex fingerprints")
+    out: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValidationError("fingerprint must be a string")
+        cleaned = item.replace(" ", "").upper()
+        if not FINGERPRINT_RE.match(cleaned):
+            raise ValidationError(
+                f"invalid OpenPGP fingerprint (expected 40 or 64 hex chars): {item!r}"
+            )
+        if cleaned not in out:
+            out.append(cleaned)
     return tuple(out)
 
 
@@ -312,15 +355,27 @@ def load_config(
         timeout=_coerce_timeout(values["timeout"]),
         allowed_prefixes=_coerce_prefixes(values["allowed_prefixes"]),
         protected_packages=_coerce_protected_packages(values["protected_packages"]),
+        max_index_age_days=_coerce_max_age_days(values["max_index_age_days"]),
         arch=validate_arch(str(values["arch"])),
         source=source,
     )
 
 
-REPO_KEYS = frozenset({"name", "server", "servers", "enabled", "siglevel"})
+REPO_KEYS = frozenset(
+    {
+        "name",
+        "server",
+        "servers",
+        "enabled",
+        "siglevel",
+        "trusted_fingerprints",
+        "max_index_age_days",
+        "allow_insecure_http",
+    }
+)
 
 
-def _validate_server(value: Any) -> str:
+def _validate_server(value: Any, *, allow_insecure_http: bool = False) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValidationError("repository server must be a non-empty URL")
     if "\x00" in value:
@@ -328,6 +383,11 @@ def _validate_server(value: Any) -> str:
     parsed = urlparse(value)
     if parsed.scheme not in ("http", "https", "file"):
         raise ValidationError(f"unsupported repository scheme: {parsed.scheme or '<none>'}")
+    if parsed.scheme == "http" and not allow_insecure_http:
+        raise ValidationError(
+            f"insecure http:// repository URL rejected ({value!r}); "
+            "use https:// or set allow_insecure_http=true"
+        )
     if parsed.scheme in ("http", "https") and not parsed.netloc:
         raise ValidationError(f"repository URL has no host: {value!r}")
     if parsed.scheme == "file" and not parsed.path:
@@ -343,6 +403,9 @@ class RepoConfig:
     servers: tuple[str, ...]
     enabled: bool = True
     siglevel: str = "required"
+    trusted_fingerprints: tuple[str, ...] = ()
+    max_index_age_days: int = 0
+    allow_insecure_http: bool = False
     source: Path | None = None
 
     def __post_init__(self) -> None:
@@ -353,7 +416,21 @@ class RepoConfig:
         if self.siglevel not in SIGLEVELS:
             raise ValidationError(f"invalid siglevel for {self.name!r}: {self.siglevel!r}")
         object.__setattr__(
-            self, "servers", tuple(dict.fromkeys(_validate_server(s) for s in self.servers))
+            self,
+            "trusted_fingerprints",
+            _coerce_fingerprints(list(self.trusted_fingerprints)),
+        )
+        if self.max_index_age_days < 0:
+            raise ValidationError("max_index_age_days must be >= 0")
+        object.__setattr__(
+            self,
+            "servers",
+            tuple(
+                dict.fromkeys(
+                    _validate_server(s, allow_insecure_http=self.allow_insecure_http)
+                    for s in self.servers
+                )
+            ),
         )
 
     @property
@@ -366,6 +443,7 @@ class RepoConfig:
         value: Mapping[str, Any],
         *,
         default_siglevel: str = "required",
+        default_max_age_days: int = 0,
         source: Path | None = None,
     ) -> RepoConfig:
         if not isinstance(value, Mapping):
@@ -392,11 +470,22 @@ class RepoConfig:
         if not isinstance(enabled, bool):
             raise ValidationError("repository enabled must be boolean")
 
+        allow_http = value.get("allow_insecure_http", False)
+        if not isinstance(allow_http, bool):
+            raise ValidationError("repository allow_insecure_http must be boolean")
+
         return cls(
             name=value["name"],
             servers=tuple(servers),
             enabled=enabled,
             siglevel=str(value.get("siglevel", default_siglevel)).lower(),
+            trusted_fingerprints=_coerce_fingerprints(
+                value.get("trusted_fingerprints")
+            ),
+            max_index_age_days=_coerce_max_age_days(
+                value.get("max_index_age_days", default_max_age_days)
+            ),
+            allow_insecure_http=allow_http,
             source=source,
         )
 
@@ -411,6 +500,7 @@ def load_repos(
     if not directory.is_dir():
         raise UsageError(f"repository directory is not a directory: {directory}")
     default_siglevel = config.siglevel if config is not None else "required"
+    default_max_age = config.max_index_age_days if config is not None else 0
     repos: list[RepoConfig] = []
     seen: set[str] = set()
     for path in sorted(directory.glob("*.json"), key=lambda item: item.name):
@@ -419,6 +509,7 @@ def load_repos(
         repo = RepoConfig.from_dict(
             _read_json_object(path, what="repository config"),
             default_siglevel=default_siglevel,
+            default_max_age_days=default_max_age,
             source=path,
         )
         if repo.name in seen:

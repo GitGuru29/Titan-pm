@@ -82,7 +82,7 @@ def transaction_lock(lock_path: Path) -> Iterator[None]:
 class StagedPackage:
     """Verified, extracted contents of one ``.tpkg`` inside ``txn/<id>/stage/``."""
 
-    planned: PlannedInstall
+    planned: PlannedInstall | None
     metadata: PackageMetadata
     files: tuple[FileEntry, ...]
     payload_dir: Path
@@ -96,7 +96,7 @@ def inspect_and_stage_tpkg(
     expected_name: str,
     expected_version: str,
     allowed_prefixes: Sequence[str],
-    planned: PlannedInstall,
+    planned: PlannedInstall | None = None,
 ) -> StagedPackage:
     """Quarantine-inspect ``archive_path`` and extract payload to ``stage_dir``."""
     stage_dir.mkdir(parents=True, exist_ok=True)
@@ -107,6 +107,7 @@ def inspect_and_stage_tpkg(
     meta_bytes: bytes | None = None
     files_bytes: bytes | None = None
     install_script: str | None = None
+    install_script_bytes: bytes | None = None
     extracted_entries: dict[str, FileEntry] = {}
     total_payload_bytes = 0
 
@@ -152,7 +153,8 @@ def inspect_and_stage_tpkg(
                         raise SecurityError("invalid INSTALL scriptlet member")
                     fobj = tar.extractfile(member)
                     if fobj is not None:
-                        install_script = fobj.read(1024 * 1024 + 1).decode("utf-8")
+                        install_script_bytes = fobj.read(1024 * 1024 + 1)
+                        install_script = install_script_bytes.decode("utf-8")
                     continue
 
                 if not name.startswith("payload/"):
@@ -242,6 +244,18 @@ def inspect_and_stage_tpkg(
             f"package identity mismatch in {archive_path.name}: expected "
             f"{expected_name} {expected_version}, got {metadata.name} {metadata.version}"
         )
+
+    if metadata.script_sha256 is not None:
+        if install_script_bytes is None:
+            raise SecurityError(
+                f"{archive_path.name} declares script_sha256 but is missing INSTALL"
+            )
+        actual_script_sha = hashlib.sha256(install_script_bytes).hexdigest()
+        if actual_script_sha != metadata.script_sha256:
+            raise SecurityError(
+                f"INSTALL scriptlet SHA-256 mismatch in {archive_path.name}: "
+                f"expected {metadata.script_sha256}, got {actual_script_sha}"
+            )
 
     size_ceiling = metadata.installed_size + MAX_DECOMPRESS_SLACK
     if metadata.installed_size > 0 and total_payload_bytes > size_ceiling:
@@ -373,6 +387,7 @@ def run_scriptlet(
         return 0
 
     runner = (
+        "umask 022\n"
         f"{script_text}\n"
         f"if command -v {hook_name} >/dev/null 2>&1; then\n"
         f"  {hook_name}\n"
@@ -389,14 +404,21 @@ def run_scriptlet(
         "TITANPKG_ACTION": action,
     }
     cwd = str(root) if root.exists() else "/"
-    proc = subprocess.run(
-        ["/bin/sh", "-e", "-c", runner],
-        cwd=cwd,
-        env=clean_env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            ["/bin/sh", "-e", "-c", runner],
+            cwd=cwd,
+            env=clean_env,
+            capture_output=True,
+            text=True,
+            check=False,
+            close_fds=True,
+            timeout=60,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise TransactionError(
+            f"INSTALL scriptlet {hook_name} for {pkg_name} timed out after 60s"
+        ) from exc
     return proc.returncode
 
 
@@ -431,6 +453,23 @@ class TransactionResult:
 # ---------------------------------------------------------------------------
 
 
+def _verify_no_symlink_ancestors(
+    target_path: Path,
+    install_root: Path,
+    allowed_prefixes: Sequence[str],
+) -> None:
+    """Reject any ancestor directory inside ``install_root`` that is a symlink (TOCTOU guard)."""
+    rel_parent = target_path.relative_to(install_root).parent
+    cur = install_root
+    for part in rel_parent.parts:
+        cur = cur / part
+        if cur.is_symlink():
+            rel_cur = cur.relative_to(install_root).as_posix()
+            raise SecurityError(
+                f"refusing to write through symlinked parent directory /{rel_cur}"
+            )
+
+
 def _place_entry_atomically(
     entry: FileEntry,
     staged_source: Path,
@@ -440,16 +479,12 @@ def _place_entry_atomically(
     allowed_prefixes: Sequence[str],
 ) -> None:
     """Atomically install a regular file or symlink at ``target_path``."""
-    # Ensure no ancestor directory inside install_root is a symlink escaping the root
+    _verify_no_symlink_ancestors(target_path, install_root, allowed_prefixes)
     rel_parent = target_path.relative_to(install_root).parent
     cur = install_root
     for part in rel_parent.parts:
         cur = cur / part
-        if cur.is_symlink():
-            link_target = os.readlink(cur)
-            rel_cur = cur.relative_to(install_root).as_posix()
-            resolve_symlink_target(rel_cur, link_target, allowed_prefixes)
-        elif not cur.exists():
+        if not cur.exists():
             cur.mkdir(parents=True, exist_ok=True)
 
     target_path.parent.mkdir(parents=True, exist_ok=True)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import gzip
+import hashlib
 import io
 import json
 import os
@@ -222,6 +223,12 @@ def build_package(
                 f"unsupported special file type in package payload: {src_path}"
             )
 
+    install_script = _resolve_install_script(manifest_path, manifest.get("install"))
+    script_bytes = install_script.read_bytes() if install_script is not None else None
+    script_sha256 = (
+        hashlib.sha256(script_bytes).hexdigest() if script_bytes is not None else None
+    )
+
     metadata = PackageMetadata.from_dict(
         {
             "format": 1,
@@ -241,10 +248,10 @@ def build_package(
             "installed_size": installed_size,
             "build_date": _epoch_iso(epoch),
             "files_count": len(file_entries),
+            "script_sha256": script_sha256,
         }
     )
 
-    install_script = _resolve_install_script(manifest_path, manifest.get("install"))
     metadata_bytes = (
         json.dumps(metadata.to_dict(), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
     ).encode("utf-8")
@@ -278,11 +285,11 @@ def build_package(
                 _add_bytes_to_tar(
                     tar, "FILES.json", files_bytes, mode=0o644, mtime=epoch
                 )
-                if install_script is not None:
+                if script_bytes is not None:
                     _add_bytes_to_tar(
                         tar,
                         "INSTALL",
-                        install_script.read_bytes(),
+                        script_bytes,
                         mode=0o755,
                         mtime=epoch,
                     )

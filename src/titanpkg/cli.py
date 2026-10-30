@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import json
+import os
 import shutil
 import sys
 from collections.abc import Sequence
@@ -18,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .config import Config, RepoConfig, enabled_repos, load_config, load_repos
+from .config import Config, Paths, RepoConfig, enabled_repos, load_config, load_repos
 from .db import Database, load_db
 from .errors import (
     ResolutionError,
@@ -512,6 +513,20 @@ def _plan_to_dict(plan: TransactionPlan) -> dict[str, Any]:
     }
 
 
+def _require_root_if_system(paths: Paths, *, dry_run: bool = False) -> None:
+    """Enforce root privileges when mutating the real system root ``/``."""
+    if dry_run or os.environ.get("TITANPKG_ALLOW_NON_ROOT") == "1":
+        return
+    if (
+        paths.root.resolve() == Path("/").resolve()
+        and hasattr(os, "geteuid")
+        and os.geteuid() != 0
+    ):
+        raise SecurityError(
+            "you cannot perform this operation unless you are root (use 'sudo tpac ...')"
+        )
+
+
 def _sync_all_repos(
     repos: Sequence[RepoConfig],
     config: Config,
@@ -521,6 +536,7 @@ def _sync_all_repos(
     emit_output: bool = True,
 ) -> list[dict[str, Any]]:
     paths = config.paths
+    _require_root_if_system(paths)
     if offline:
         raise UsageError("cannot synchronize repository databases with --offline")
     if not repos:
@@ -665,6 +681,7 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
         return 0
 
     if cmd in ("install", "reinstall"):
+        _require_root_if_system(paths, dry_run=args.dry_run)
         synced_info: list[dict[str, Any]] | None = None
         if getattr(args, "sync", False):
             synced_info = _sync_all_repos(
@@ -682,7 +699,13 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
         if getattr(args, "sysupgrade", False):
             if not args.json_output:
                 print(":: Starting full Titan subsystem upgrade...")
-            upg_plan = resolve_upgrade([], catalog, db, root=paths.root)
+            upg_plan = resolve_upgrade(
+                [],
+                catalog,
+                db,
+                root=paths.root,
+                protected_packages=config.protected_packages,
+            )
 
         reinstall_flag = (cmd == "reinstall") or not getattr(args, "needed", False)
         inst_plan = resolve_install(
@@ -691,6 +714,7 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
             db,
             reinstall=reinstall_flag,
             root=paths.root,
+            protected_packages=config.protected_packages,
         )
         plan = _merge_plans(upg_plan, inst_plan)
         return _run_plan(
@@ -698,6 +722,7 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
         )
 
     if cmd == "upgrade":
+        _require_root_if_system(paths, dry_run=args.dry_run)
         synced_info = None
         if getattr(args, "sync", False):
             synced_info = _sync_all_repos(
@@ -714,13 +739,18 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
             repos, paths, arch=config.arch, offline=args.offline, timeout=config.timeout
         )
         plan = resolve_upgrade(
-            args.packages, catalog, db, root=paths.root
+            args.packages,
+            catalog,
+            db,
+            root=paths.root,
+            protected_packages=config.protected_packages,
         )
         return _run_plan(
             plan, config, args, repos_by_name, synced_repos=synced_info
         )
 
     if cmd == "remove":
+        _require_root_if_system(paths, dry_run=args.dry_run)
         db = load_db(paths, default_arch=config.arch)
         catalog: MergedCatalog | None = None
         with contextlib.suppress(Exception):
@@ -749,6 +779,7 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
         return _run_plan(plan, config, args, repos_by_name)
 
     if cmd == "autoremove":
+        _require_root_if_system(paths, dry_run=args.dry_run)
         db = load_db(paths, default_arch=config.arch)
         catalog = None
         with contextlib.suppress(Exception):
@@ -763,6 +794,7 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
         return _run_plan(plan, config, args, repos_by_name)
 
     if cmd == "rollback":
+        _require_root_if_system(paths, dry_run=args.dry_run)
         db = load_db(paths, default_arch=config.arch)
         installed_pkg = db.get(args.package)
         catalog = load_catalog(
@@ -982,6 +1014,7 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
         return 0 if not hard_issues else SecurityError.exit_code
 
     if cmd == "clean":
+        _require_root_if_system(paths)
         with transaction_lock(paths.lock_file):
             db = load_db(paths, default_arch=config.arch)
             keep_filenames = {
@@ -1017,6 +1050,7 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
     if cmd == "key":
         kr = Keyring(paths)
         if args.key_action == "import":
+            _require_root_if_system(paths)
             keys = kr.import_key(args.key_file)
             _emit(
                 {"keys": [k.to_dict() for k in keys]},

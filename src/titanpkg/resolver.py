@@ -106,6 +106,7 @@ def resolve_install(
     reinstall: bool = False,
     pinned_version: str | None = None,
     root: Path = Path("/"),
+    protected_packages: Sequence[str] = (),
 ) -> TransactionPlan:
     """Resolve package names/constraints into a topological ``TransactionPlan``."""
     if not specs:
@@ -184,6 +185,7 @@ def resolve_install(
         _visit(rec, reason)
 
     # Check system dependencies and conflicts/replaces
+    protected_set = set(protected_packages)
     all_system_deps: list[Dependency] = []
     replaced_all: set[str] = set()
     planned: list[PlannedInstall] = []
@@ -192,6 +194,11 @@ def resolve_install(
         all_system_deps.extend(rec.metadata.system_depends)
         pkg_replaces: list[str] = []
         for rep_dep in rec.metadata.replaces:
+            if rep_dep.name != rec.name and rep_dep.name in protected_set:
+                raise ResolutionError(
+                    f"package {rec.name!r} cannot replace protected core package "
+                    f"{rep_dep.name!r}"
+                )
             if db.is_installed(rep_dep.name) and rep_dep.name != rec.name:
                 installed_target = db.get(rep_dep.name)
                 if installed_target and rep_dep.matches(installed_target.version):
@@ -274,6 +281,7 @@ def resolve_upgrade(
     db: Database,
     *,
     root: Path = Path("/"),
+    protected_packages: Sequence[str] = (),
 ) -> TransactionPlan:
     """Resolve upgrades for all (or selected) installed packages."""
     targets: list[str] = []
@@ -291,7 +299,14 @@ def resolve_upgrade(
     if not targets:
         return TransactionPlan()
 
-    plan = resolve_install(targets, catalog, db, reinstall=False, root=root)
+    plan = resolve_install(
+        targets,
+        catalog,
+        db,
+        reinstall=False,
+        root=root,
+        protected_packages=protected_packages,
+    )
     # Preserve original install reasons for upgraded packages
     adjusted: list[PlannedInstall] = []
     for item in plan.installs:
