@@ -60,24 +60,24 @@ COMMANDS = (
 )
 
 PACMAN_HELP_EPILOG = """\
-Arch pacman-style operations:
-  titanpkg -Syu [pkg...]       synchronize repositories and upgrade all subsystems
-  titanpkg -S <pkg...>         install (or reinstall) packages
-  titanpkg -Sy                 synchronize repository databases only
-  titanpkg -Su [pkg...]        upgrade installed subsystems
-  titanpkg -Ss <query>         search repositories for matching packages
-  titanpkg -Si <pkg>           display repository package information
-  titanpkg -Sl                 list all available packages in repositories
-  titanpkg -Sc / -Scc          clean old (-Sc) or all (-Scc) cached packages
-  titanpkg -R <pkg...>         remove installed packages
-  titanpkg -Rns <pkg...>       remove packages and orphaned dependencies
-  titanpkg -Q                  list installed packages
-  titanpkg -Qu                 list upgradable packages
-  titanpkg -Qi <pkg>           display installed package information
-  titanpkg -Ql <pkg>           list files owned by an installed package
-  titanpkg -Qo <path>          query which package owns a filesystem path
-  titanpkg -Qk [pkg...]        verify installed files against SHA-256 hashes
-  titanpkg -Qdt                list orphaned dependency packages
+Arch pacman-style operations (tpac / titanpkg):
+  sudo tpac -Syu [pkg...]      synchronize repositories and upgrade all subsystems
+  sudo tpac -S <pkg...>        install (or reinstall) packages
+  sudo tpac -Sy                synchronize repository databases only
+  sudo tpac -Su [pkg...]       upgrade installed subsystems
+  tpac -Ss <query>             search repositories for matching packages
+  tpac -Si <pkg>               display repository package information
+  tpac -Sl                     list all available packages in repositories
+  sudo tpac -Sc / -Scc         clean old (-Sc) or all (-Scc) cached packages
+  sudo tpac -R <pkg...>        remove installed packages
+  sudo tpac -Rns <pkg...>      remove packages and orphaned dependencies
+  tpac -Q                      list installed packages
+  tpac -Qu                     list upgradable packages
+  tpac -Qi <pkg>               display installed package information
+  tpac -Ql <pkg>               list files owned by an installed package
+  tpac -Qo <path>              query which package owns a filesystem path
+  tpac -Qk [pkg...]            verify installed files against SHA-256 hashes
+  tpac -Qdt                    list orphaned dependency packages
 
 Documentation: docs/IMPLEMENTATION-PLAN.md
 """

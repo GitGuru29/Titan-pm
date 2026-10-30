@@ -7,7 +7,7 @@
   "url": "https://github.com/GitGuru29/Titan-pm",
   "license": ["Apache-2.0"],
   "depends": [],
-  "provides": ["titanpkg"],
+  "provides": ["titanpkg", "tpac"],
   "conflicts": [],
   "replaces": [],
   "backup": [
@@ -16,9 +16,11 @@
   ],
   "setuid": [],
   "files": [
+    "usr/local/bin/tpac",
     "usr/local/bin/titanpkg",
     "usr/local/lib/titanpkg/titanpkg/**",
     "etc/titanpkg/titanpkg.json",
     "etc/titanpkg/repos.d/archtitan.json"
   ]
 }
+

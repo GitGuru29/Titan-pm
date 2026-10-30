@@ -1,4 +1,4 @@
-#compdef titanpkg
+#compdef tpac titanpkg
 
 _titanpkg() {
   local -a opts commands
@@ -54,3 +54,4 @@ _titanpkg() {
 }
 
 _titanpkg "$@"
+

@@ -1,4 +1,4 @@
-# Bash completion for titanpkg
+# Bash completion for tpac and titanpkg
 _titanpkg() {
     local cur prev words cword
     COMPREPLY=()
@@ -21,4 +21,5 @@ _titanpkg() {
     COMPREPLY=( $(compgen -W "$commands $flags" -- "$cur") )
     return 0
 }
-complete -F _titanpkg titanpkg
+complete -F _titanpkg tpac titanpkg
+

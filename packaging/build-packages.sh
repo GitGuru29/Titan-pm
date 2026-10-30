@@ -93,6 +93,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 LAUNCHER
     chmod 0755 "$tmp_stage/usr/local/bin/titanpkg"
+    ln -sf titanpkg "$tmp_stage/usr/local/bin/tpac"
     cp "$root/config/titanpkg.json" "$tmp_stage/etc/titanpkg/titanpkg.json"
     cp "$root/config/repos.d/archtitan.json.example" "$tmp_stage/etc/titanpkg/repos.d/archtitan.json"
     pkg_src="$tmp_stage"

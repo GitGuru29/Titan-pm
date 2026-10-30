@@ -130,3 +130,4 @@ def test_pacman_style_flags_end_to_end(tmp_path: Path, capsys, monkeypatch):
     assert main(["--root", str(root), "--noconfirm", "-Rns", "titan-hwm"]) == 0
     assert not bin_path.exists()
     assert not (root / "etc" / "titan-hwm" / "config.pacsave").exists()
+

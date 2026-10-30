@@ -1,28 +1,29 @@
-.TH TITANPKG 1 "2026" "titanpkg 0.1.0" "ArchTitan OS Manual"
+.TH TPAC 1 "2026" "titanpkg 0.1.0" "ArchTitan OS Manual"
 .SH NAME
-titanpkg \- standalone package manager for ArchTitan OS subsystems
+tpac, titanpkg \- standalone package manager for ArchTitan OS subsystems
 .SH SYNOPSIS
-.B titanpkg
+.B tpac
 .RI [ options ]
 .B \-Syu
 .RI [ package ...]
 .br
-.B titanpkg
+.B tpac
 .RI [ options ]
 .B \-S
 .I package ...
 .br
-.B titanpkg
+.B tpac
 .RI [ options ]
 .B \-Rns
 .I package ...
 .br
-.B titanpkg
+.B tpac
 .RI [ options ]
 .I command
 .RI [ arguments ...]
 .SH DESCRIPTION
-.B titanpkg
+.B tpac
+(\fBtitanpkg\fR)
 installs, upgrades, verifies and rolls back first-party ArchTitan OS subsystem
 packages (\fItitan-hwm\fR, \fItitan-ui\fR, \fItitan-sysmon\fR,
 \fItitan-quicksettings\fR, \fIarchtitan-guard\fR, etc.) alongside \fBpacman\fR(8)
@@ -98,3 +99,4 @@ Security violation (signature, SHA-256, path escape, or ownership failure).
 .TP
 .B 5
 Transaction failure (automatically rolled back).
+

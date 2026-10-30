@@ -123,47 +123,47 @@ Full specification: [`docs/REPOSITORY.md`](docs/REPOSITORY.md).
 
 ---
 
-## CLI surface
+## CLI surface (`tpac` / `titanpkg`)
 
-`titanpkg` supports **Arch `pacman`-style flags** (`-Syu`, `-S`, `-Rns`, `-Q`, `-Qo`, `-Qk`) as well as readable subcommands:
+`tpac` (and `titanpkg`) supports **Arch `pacman`-style flags** (`-Syu`, `-S`, `-Rns`, `-Q`, `-Qo`, `-Qk`) as well as readable subcommands:
 
 ```text
 # Arch pacman-style flags
-titanpkg -Syu [pkg…]                sync repository indexes and upgrade all subsystems
-titanpkg -S <pkg…>                  install (or reinstall) packages (+ dependencies)
-titanpkg -Sy                        refresh repository indexes only
-titanpkg -Su [pkg…]                 upgrade installed subsystems
-titanpkg -Ss <term>                 search package names and descriptions
-titanpkg -Si <pkg> / -Qi <pkg>      metadata, versions, dependencies
-titanpkg -Sl                        list all available repository packages
-titanpkg -Sc / -Scc                 prune old (-Sc) or all (-Scc) cached packages
-titanpkg -R <pkg…> / -Rns <pkg…>    remove packages (and orphaned deps with -s)
-titanpkg -Q                         list installed packages
-titanpkg -Qu                        list upgradable packages
-titanpkg -Ql <pkg>                  list package file manifest
-titanpkg -Qo <path>                 query which Titan package owns a file
-titanpkg -Qk [pkg…]                 verify installed files against SHA-256 hashes
-titanpkg -Qdt                       list orphaned dependency packages
+tpac -Syu [pkg…]                    sync repository indexes and upgrade all subsystems
+tpac -S <pkg…>                      install (or reinstall) packages (+ dependencies)
+tpac -Sy                            refresh repository indexes only
+tpac -Su [pkg…]                     upgrade installed subsystems
+tpac -Ss <term>                     search package names and descriptions
+tpac -Si <pkg> / -Qi <pkg>          metadata, versions, dependencies
+tpac -Sl                            list all available repository packages
+tpac -Sc / -Scc                     prune old (-Sc) or all (-Scc) cached packages
+tpac -R <pkg…> / -Rns <pkg…>        remove packages (and orphaned deps with -s)
+tpac -Q                             list installed packages
+tpac -Qu                            list upgradable packages
+tpac -Ql <pkg>                      list package file manifest
+tpac -Qo <path>                     query which Titan package owns a file
+tpac -Qk [pkg…]                     verify installed files against SHA-256 hashes
+tpac -Qdt                           list orphaned dependency packages
 
 # Equivalent subcommands
-titanpkg update                     refresh repo indexes
-titanpkg upgrade [pkg…]             upgrade all or selected installed packages
-titanpkg install <pkg…>             install packages (+ dependencies)
-titanpkg reinstall <pkg…>           reinstall the installed version
-titanpkg remove <pkg…>              remove packages (reverse-dep check)
-titanpkg autoremove                 remove orphaned dependencies
-titanpkg list [--installed|--available|--upgradable|--orphans]
-titanpkg search <term>              search name/description
-titanpkg info <pkg>                 metadata, versions, files
-titanpkg files <pkg>                list package file manifest
-titanpkg owns <path>                query which package owns a path
-titanpkg verify [pkg…]              check installed files against hashes
-titanpkg rollback <pkg> [version]   install a previous version
-titanpkg clean [--all]              prune cached packages
-titanpkg doctor                     config/db/repo/keyring diagnostics
-titanpkg key import <file>          add a trusted repository key
-titanpkg key list                   list trusted keys
-titanpkg self-check                 verify the manager's own files
+tpac update                         refresh repo indexes
+tpac upgrade [pkg…]                 upgrade all or selected installed packages
+tpac install <pkg…>                 install packages (+ dependencies)
+tpac reinstall <pkg…>               reinstall the installed version
+tpac remove <pkg…>                  remove packages (reverse-dep check)
+tpac autoremove                     remove orphaned dependencies
+tpac list [--installed|--available|--upgradable|--orphans]
+tpac search <term>                  search name/description
+tpac info <pkg>                     metadata, versions, files
+tpac files <pkg>                    list package file manifest
+tpac owns <path>                    query which package owns a path
+tpac verify [pkg…]                  check installed files against hashes
+tpac rollback <pkg> [version]       install a previous version
+tpac clean [--all]                  prune cached packages
+tpac doctor                         config/db/repo/keyring diagnostics
+tpac key import <file>              add a trusted repository key
+tpac key list                       list trusted keys
+tpac self-check                     verify the manager's own files
 ```
 
 Global flags: `--root PATH` (sandbox/test), `--noconfirm` (`-y`), `--needed`,
@@ -172,13 +172,13 @@ Global flags: `--root PATH` (sandbox/test), `--noconfirm` (`-y`), `--needed`,
 Example:
 
 ```bash
-sudo titanpkg -Syu
-sudo titanpkg -S titan-sysmon
-sudo titanpkg -Rns titan-sysmon
-titanpkg -Qu
-titanpkg -Qo /usr/local/bin/titan-hwm
-titanpkg -Qk
-sudo titanpkg rollback titan-hwm 3.1.0-1
+sudo tpac -Syu
+sudo tpac -S titan-sysmon
+sudo tpac -Rns titan-sysmon
+tpac -Qu
+tpac -Qo /usr/local/bin/titan-hwm
+tpac -Qk
+sudo tpac rollback titan-hwm 3.1.0-1
 ```
 
 ---
