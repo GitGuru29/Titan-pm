@@ -1,18 +1,21 @@
 """Arch-compatible version comparison.
 
-This is a faithful port of libalpm's ``rpmvercmp`` / ``parseEVR`` logic from
-pacman (``lib/libalpm/version.c``).  It intentionally keeps libalpm's quirks:
+Implements ``epoch:pkgver-pkgrel`` parsing and alternating numeric/alpha
+segment comparison following ``docs/IMPLEMENTATION-PLAN.md``:
 
-- epoch defaults to ``0`` and is only parsed when the version starts with
-  ``<digits>:``;
-- the release is the text after the **last** hyphen;
-- if either side has no release, releases are not compared at all;
-- ``~`` is *not* special (it is just a separator, unlike RPM).
+- ``epoch`` defaults to ``0``, ``pkgrel`` defaults to ``0`` when absent;
+- numeric segments compare by value (length after stripping leading zeros,
+  then lexicographically) and sort newer than alpha segments;
+- ``~`` sorts older than everything (including end-of-version);
+- ``^`` sorts newer than end-of-version, older than regular suffixes;
+- ``+`` and ``_`` post-release separators sort newer than ``.``.
 
 The returned value is ``-1`` (``a`` older), ``0`` (equal) or ``1`` (``a`` newer).
 """
 
 from __future__ import annotations
+
+_SEP_ORDER = {".": 0, "+": 1, "_": 2}
 
 
 def _is_alnum(char: str) -> bool:
@@ -27,8 +30,12 @@ def _is_digit(char: str) -> bool:
     return char.isascii() and char.isdigit()
 
 
+def _sep_key(sep: str) -> tuple[int, tuple[int, ...]]:
+    return (len(sep), tuple(_SEP_ORDER.get(ch, ord(ch)) for ch in sep))
+
+
 def _rpmvercmp(a: str, b: str) -> int:
-    """Compare two version fragments using libalpm's segment rules."""
+    """Compare two version fragments using segment and pre/post-release rules."""
     if a == b:
         return 0
 
@@ -36,20 +43,53 @@ def _rpmvercmp(a: str, b: str) -> int:
     len_b = len(b)
     one = 0
     two = 0
-    ptr1 = 0
-    ptr2 = 0
 
-    while one < len_a and two < len_b:
-        while one < len_a and not _is_alnum(a[one]):
+    while one < len_a or two < len_b:
+        a_tilde = one < len_a and a[one] == "~"
+        b_tilde = two < len_b and b[two] == "~"
+        if a_tilde or b_tilde:
+            if not a_tilde:
+                return 1
+            if not b_tilde:
+                return -1
             one += 1
-        while two < len_b and not _is_alnum(b[two]):
             two += 1
+            continue
+
+        a_caret = one < len_a and a[one] == "^"
+        b_caret = two < len_b and b[two] == "^"
+        if a_caret or b_caret:
+            if one >= len_a:
+                return -1
+            if two >= len_b:
+                return 1
+            if not a_caret:
+                return 1
+            if not b_caret:
+                return -1
+            one += 1
+            two += 1
+            continue
+
+        sep_a_start = one
+        sep_b_start = two
+        while one < len_a and not _is_alnum(a[one]) and a[one] not in ("~", "^"):
+            one += 1
+        while two < len_b and not _is_alnum(b[two]) and b[two] not in ("~", "^"):
+            two += 1
+
+        if (one < len_a and a[one] in ("~", "^")) or (
+            two < len_b and b[two] in ("~", "^")
+        ):
+            continue
 
         if not (one < len_a and two < len_b):
             break
 
-        if (one - ptr1) != (two - ptr2):
-            return -1 if (one - ptr1) < (two - ptr2) else 1
+        sep_a = a[sep_a_start:one]
+        sep_b = b[sep_b_start:two]
+        if sep_a != sep_b:
+            return -1 if _sep_key(sep_a) < _sep_key(sep_b) else 1
 
         ptr1 = one
         ptr2 = two
@@ -91,19 +131,11 @@ def _rpmvercmp(a: str, b: str) -> int:
 
     if one >= len_a and two >= len_b:
         return 0
-
-    one_empty = one >= len_a
-    two_empty = two >= len_b
-    one_is_alpha = not one_empty and _is_alpha(a[one])
-    two_is_alpha = not two_empty and _is_alpha(b[two])
-
-    if (one_empty and not two_is_alpha) or one_is_alpha:
-        return -1
-    return 1
+    return -1 if one >= len_a else 1
 
 
 def parse_evr(evr: str) -> tuple[str, str, str | None]:
-    """Split ``[epoch:]version[-release]`` the way libalpm does."""
+    """Split ``[epoch:]version[-release]``."""
     index = 0
     while index < len(evr) and _is_digit(evr[index]):
         index += 1
@@ -137,6 +169,6 @@ def vercmp(a: str, b: str) -> int:
     if result != 0:
         return result
 
-    if release_a is not None and release_b is not None:
-        return _rpmvercmp(release_a, release_b)
-    return 0
+    if release_a is None and release_b is None:
+        return 0
+    return _rpmvercmp(release_a or "0", release_b or "0")

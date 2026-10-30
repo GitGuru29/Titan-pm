@@ -132,7 +132,13 @@ def normalize_prefixes(prefixes: Iterable[str]) -> tuple[str, ...]:
 def is_allowed_path(relpath: str, prefixes: Sequence[str]) -> bool:
     """True when ``relpath`` is inside one of the normalized prefixes."""
     relpath = safe_relpath(relpath)
-    return any(relpath == prefix.rstrip("/") or relpath.startswith(prefix) for prefix in prefixes)
+    for prefix in prefixes:
+        base = prefix.rstrip("/")
+        if relpath == base or relpath.startswith(prefix):
+            return True
+        if base.endswith(".so") and relpath.startswith(base + "."):
+            return True
+    return False
 
 
 def validate_allowed_path(relpath: str, prefixes: Sequence[str]) -> str:

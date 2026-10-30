@@ -21,7 +21,13 @@ def test_cli_help_without_command(capsys):
     assert "usage: titanpkg" in out
 
 
-def test_unimplemented_command_is_reported(capsys):
-    assert main(["update"]) == 1
+def test_update_without_repos_reports_usage_error(tmp_path, capsys):
+    assert main(["--root", str(tmp_path), "update"]) == 2
     err = capsys.readouterr().err
-    assert "not implemented yet" in err
+    assert "no enabled repositories" in err
+
+
+def test_self_check_command(capsys):
+    assert main(["self-check", "--json"]) == 0
+    out = capsys.readouterr().out
+    assert '"ok": true' in out
