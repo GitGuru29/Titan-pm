@@ -727,8 +727,12 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
             catalog = load_catalog(
                 repos, paths, arch=config.arch, offline=True, timeout=config.timeout
             )
+        plan = resolve_remove(
+            args.packages,
+            db,
+            protected_packages=config.protected_packages,
+        )
         check_reverse_dependencies(args.packages, db, catalog)
-        plan = resolve_remove(args.packages, db)
         if getattr(args, "cascade_orphans", False):
             # Simulate removing the requested packages first, then find new orphans
             simulated_db = Database.from_dict(
@@ -736,7 +740,11 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
             )
             for name in args.packages:
                 simulated_db.remove(name)
-            orphan_plan = resolve_autoremove(simulated_db, catalog)
+            orphan_plan = resolve_autoremove(
+                simulated_db,
+                catalog,
+                protected_packages=config.protected_packages,
+            )
             plan = _merge_plans(plan, orphan_plan)
         return _run_plan(plan, config, args, repos_by_name)
 
@@ -747,7 +755,11 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
             catalog = load_catalog(
                 repos, paths, arch=config.arch, offline=True, timeout=config.timeout
             )
-        plan = resolve_autoremove(db, catalog)
+        plan = resolve_autoremove(
+            db,
+            catalog,
+            protected_packages=config.protected_packages,
+        )
         return _run_plan(plan, config, args, repos_by_name)
 
     if cmd == "rollback":
@@ -805,7 +817,11 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
                     offline=True,
                     timeout=config.timeout,
                 )
-            orphan_plan = resolve_autoremove(db, catalog)
+            orphan_plan = resolve_autoremove(
+                db,
+                catalog,
+                protected_packages=config.protected_packages,
+            )
             items = [pkg.to_dict() for pkg in orphan_plan.removes]
             lines = [f"{pkg.name} {pkg.version}" for pkg in orphan_plan.removes]
             _emit(items, json_mode=args.json_output, human_lines=lines)

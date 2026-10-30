@@ -136,7 +136,18 @@ def test_install_upgrade_rollback_remove_and_conffiles(tmp_path: Path, monkeypat
     assert main(["--root", str(target_root), "--noconfirm", "rollback", "titan-hwm"]) == 0
     assert "1.0.0" in installed_bin.read_text(encoding="utf-8")
 
-    # 7. Remove package -> modified conffile must be saved as .pacsave
+    # 7. Default protected_packages blocks removing titan-hwm
+    assert (
+        main(["--root", str(target_root), "--noconfirm", "remove", "titan-hwm"])
+        == ResolutionError.exit_code
+    )
+    assert installed_bin.exists()
+
+    # 8. With protected_packages cleared in titanpkg.json, remove saves .pacsave
+    atomic_write_json(
+        etc_dir / "titanpkg.json",
+        {"siglevel": "none", "timeout": 10, "protected_packages": []},
+    )
     assert main(["--root", str(target_root), "--noconfirm", "remove", "titan-hwm"]) == 0
     assert not installed_bin.exists()
     pacsave = target_root / "etc" / "titan-hwm" / "config.pacsave"

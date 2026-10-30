@@ -36,6 +36,13 @@ DEFAULT_ALLOWED_PREFIXES = (
     "opt/archtitan/",
 )
 
+DEFAULT_PROTECTED_PACKAGES = (
+    "titan-hwm",
+    "titanpkg",
+    "archtitan-guard",
+    "titan-ui",
+)
+
 DEFAULT_CONFIG: dict[str, Any] = {
     "db": "/var/lib/titanpkg",
     "cache": "/var/cache/titanpkg",
@@ -46,6 +53,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "timeout": 30,
     "arch": "x86_64",
     "allowed_prefixes": list(DEFAULT_ALLOWED_PREFIXES),
+    "protected_packages": list(DEFAULT_PROTECTED_PACKAGES),
 }
 
 CONFIG_KEYS = frozenset(DEFAULT_CONFIG)
@@ -59,6 +67,7 @@ _ENV_OVERRIDES = {
     "TITANPKG_TIMEOUT": "timeout",
     "TITANPKG_ARCH": "arch",
     "TITANPKG_ALLOWED_PREFIXES": "allowed_prefixes",
+    "TITANPKG_PROTECTED_PACKAGES": "protected_packages",
 }
 
 
@@ -172,6 +181,7 @@ class Config:
     siglevel: str = "required"
     timeout: float = 30.0
     allowed_prefixes: tuple[str, ...] = DEFAULT_ALLOWED_PREFIXES
+    protected_packages: tuple[str, ...] = DEFAULT_PROTECTED_PACKAGES
     arch: str = "x86_64"
     source: Path | None = None
 
@@ -182,6 +192,9 @@ class Config:
             raise ValidationError("timeout must be greater than zero")
         if not self.allowed_prefixes:
             raise ValidationError("allowed_prefixes cannot be empty")
+        for pkg_name in self.protected_packages:
+            if not isinstance(pkg_name, str) or not NAME_RE.match(pkg_name):
+                raise ValidationError(f"invalid protected package name: {pkg_name!r}")
         validate_arch(self.arch)
 
 
@@ -208,6 +221,20 @@ def _coerce_prefixes(value: Any) -> tuple[str, ...]:
     except Exception as exc:
         raise ValidationError(str(exc)) from exc
     return tuple(dict.fromkeys(normalized))
+
+
+def _coerce_protected_packages(value: Any) -> tuple[str, ...]:
+    if isinstance(value, str):
+        value = [part.strip() for part in value.split(",") if part.strip()]
+    if not isinstance(value, (list, tuple)):
+        raise ValidationError("protected_packages must be a list of package names")
+    out: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not NAME_RE.match(item):
+            raise ValidationError(f"invalid protected package name: {item!r}")
+        if item not in out:
+            out.append(item)
+    return tuple(out)
 
 
 def _coerce_timeout(value: Any) -> float:
@@ -284,6 +311,7 @@ def load_config(
         siglevel=siglevel,
         timeout=_coerce_timeout(values["timeout"]),
         allowed_prefixes=_coerce_prefixes(values["allowed_prefixes"]),
+        protected_packages=_coerce_protected_packages(values["protected_packages"]),
         arch=validate_arch(str(values["arch"])),
         source=source,
     )

@@ -23,5 +23,11 @@
     "etc/systemd/system/",
     "var/lib/archtitan/",
     "opt/archtitan/"
+  ],
+  "protected_packages": [
+    "titan-hwm",
+    "titanpkg",
+    "archtitan-guard",
+    "titan-ui"
   ]
 }

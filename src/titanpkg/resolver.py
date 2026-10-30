@@ -315,14 +315,22 @@ def resolve_upgrade(
 def resolve_remove(
     names: Sequence[str],
     db: Database,
+    *,
+    protected_packages: Sequence[str] = (),
 ) -> TransactionPlan:
-    """Resolve package removals, rejecting removal if reverse dependencies remain."""
+    """Resolve package removals, rejecting removal of protected or reverse-dependent packages."""
     if not names:
         raise ResolutionError("no packages specified for removal")
 
+    protected_set = set(protected_packages)
     remove_set: set[str] = set()
     remove_list: list[InstalledPackage] = []
     for name in names:
+        if name in protected_set:
+            raise ResolutionError(
+                f"cannot remove protected core package {name!r} "
+                "(protected by titanpkg.json)"
+            )
         pkg = db.get(name)
         if pkg is None:
             raise ResolutionError(f"package {name!r} is not installed")
@@ -330,9 +338,6 @@ def resolve_remove(
             remove_set.add(name)
             remove_list.append(pkg)
 
-    # Check if any remaining installed package depends on a package in remove_set
-    # Note: installed.json doesn't store full depends AST, so we also support checking
-    # against catalog or optional metadata if present.
     return TransactionPlan(installs=(), removes=tuple(remove_list))
 
 
@@ -364,10 +369,15 @@ def check_reverse_dependencies(
 def resolve_autoremove(
     db: Database,
     catalog: MergedCatalog | None = None,
+    *,
+    protected_packages: Sequence[str] = (),
 ) -> TransactionPlan:
     """Identify orphaned packages installed with ``reason == 'dependency'``."""
+    protected_set = set(protected_packages)
     needed: set[str] = {
-        name for name, pkg in db.packages.items() if pkg.reason == "explicit"
+        name
+        for name, pkg in db.packages.items()
+        if pkg.reason == "explicit" or name in protected_set
     }
     if catalog is not None:
         changed = True
@@ -388,6 +398,6 @@ def resolve_autoremove(
     orphans = [
         pkg
         for name, pkg in sorted(db.packages.items())
-        if name not in needed and pkg.reason == "dependency"
+        if name not in needed and name not in protected_set and pkg.reason == "dependency"
     ]
     return TransactionPlan(installs=(), removes=tuple(orphans))

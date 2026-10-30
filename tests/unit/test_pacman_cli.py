@@ -125,8 +125,18 @@ def test_pacman_style_flags_end_to_end(tmp_path: Path, capsys, monkeypatch):
     assert main(["--root", str(root), "-Sc"]) == 0
     capsys.readouterr()
 
-    # 5. Modify config and remove with -Rns (nosave + cascade orphans) -> no .pacsave left
+    # 5. Attempting to remove protected core package 'titan-hwm' is blocked by default
     cfg_path.write_text("user-edited=1\n", encoding="utf-8")
+    assert main(["--root", str(root), "--noconfirm", "-Rns", "titan-hwm"]) == 3
+    err = capsys.readouterr().err
+    assert "cannot remove protected core package 'titan-hwm'" in err
+    assert bin_path.exists()
+
+    # 6. If admin explicitly clears protected_packages in titanpkg.json, -Rns removes it cleanly
+    atomic_write_json(
+        root / "etc" / "titanpkg" / "titanpkg.json",
+        {"siglevel": "none", "protected_packages": []},
+    )
     assert main(["--root", str(root), "--noconfirm", "-Rns", "titan-hwm"]) == 0
     assert not bin_path.exists()
     assert not (root / "etc" / "titan-hwm" / "config.pacsave").exists()
