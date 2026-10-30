@@ -250,3 +250,48 @@ def test_non_root_rejected_for_system_root_mutations(monkeypatch, capsys):
     assert rc == SecurityError.exit_code
     err = capsys.readouterr().err
     assert "unless you are root (use 'sudo tpac ...')" in err
+
+
+def test_hash_chained_audit_log_and_tamper_detection(tmp_path: Path, capsys):
+    from titanpkg.transaction import append_audit_log, read_and_verify_audit_log
+
+    root = tmp_path / "root"
+    paths = Paths.from_root(root)
+    log_path = paths.log_file
+
+    append_audit_log(
+        log_path,
+        tx_id="tx-001",
+        events=[("installed", "titan-hwm", "3.1.0-1")],
+        timestamp="2026-05-01T00:00:00Z",
+    )
+    append_audit_log(
+        log_path,
+        tx_id="tx-002",
+        events=[("upgraded", "titan-hwm", "3.1.0-1 -> 3.2.0-1")],
+        timestamp="2026-05-02T00:00:00Z",
+    )
+
+    entries, errors = read_and_verify_audit_log(log_path)
+    assert len(entries) == 2
+    assert errors == []
+
+    # Verify via CLI (-Qh and history --verify)
+    assert main(["--root", str(root), "-Qh"]) == 0
+    out = capsys.readouterr().out
+    assert "installed titan-hwm (3.1.0-1)" in out
+    assert "upgraded titan-hwm (3.1.0-1 -> 3.2.0-1)" in out
+
+    assert main(["--root", str(root), "history", "--verify"]) == 0
+    assert "audit log hash chain verified (2 entries intact)" in capsys.readouterr().out
+
+    # Tamper with line 1 in /var/log/titanpkg.log (change version without recomputing chain)
+    content = log_path.read_text(encoding="utf-8")
+    log_path.write_text(
+        content.replace("(3.1.0-1)", "(1.0.0-1)", 1), encoding="utf-8"
+    )
+
+    assert main(["--root", str(root), "history", "--verify"]) == SecurityError.exit_code
+    out_tampered = capsys.readouterr().out
+    assert "TAMPER ERROR: line 1" in out_tampered
+

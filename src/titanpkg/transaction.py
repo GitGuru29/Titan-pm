@@ -12,6 +12,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -21,7 +22,7 @@ import uuid
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO
+from typing import IO, Any
 
 from .config import Config, RepoConfig
 from .core.models import FileEntry, InstalledPackage, PackageMetadata
@@ -842,6 +843,24 @@ def execute_transaction(
 
             # 6. Atomically commit installed.json LAST
             save_db(paths, db)
+
+            # 7. Append tamper-evident hash-chained audit log entries
+            audit_events: list[tuple[str, str, str]] = []
+            for rem_pkg in plan.removes:
+                audit_events.append(("removed", rem_pkg.name, rem_pkg.version))
+            for staged in staged_packages:
+                act = staged.planned.action if staged.planned else "install"
+                prev_v = staged.planned.previous_version if staged.planned else None
+                if prev_v and act in ("upgrade", "downgrade", "reinstall"):
+                    audit_events.append(
+                        (f"{act}d", staged.metadata.name, f"{prev_v} -> {staged.metadata.version}")
+                    )
+                else:
+                    audit_events.append(
+                        ("installed", staged.metadata.name, staged.metadata.version)
+                    )
+            if audit_events:
+                append_audit_log(paths.log_file, tx_id=txn_id, events=audit_events)
         except BaseException as exc:
             _rollback_filesystem(
                 backups,
@@ -894,6 +913,163 @@ def _rollback_filesystem(
                 atomic_write_bytes(
                     abs_target, rec.backup_file.read_bytes(), mode=rec.mode
                 )
+
+
+# ---------------------------------------------------------------------------
+# Tamper-Evident Hash-Chained Audit Log (/var/log/titanpkg.log)
+# ---------------------------------------------------------------------------
+
+GENESIS_CHAIN_HASH = "0" * 64
+_AUDIT_LINE_RE = re.compile(
+    r"^\[(?P<ts>[^\]]+)\] \[TPAC\] \[tx=(?P<tx>[^\]]+)\] "
+    r"(?P<action>[a-z_]+) (?P<pkg>[a-z0-9._+-]+) \((?P<detail>[^)]+)\) "
+    r"\[chain=(?P<chain>[0-9a-f]{64})\]$"
+)
+
+
+@dataclass(frozen=True)
+class AuditEntry:
+    """One verified or parsed line in ``/var/log/titanpkg.log``."""
+
+    line_no: int
+    timestamp: str
+    tx_id: str
+    action: str
+    package: str
+    detail: str
+    chain_hash: str
+
+    def format_line(self) -> str:
+        return (
+            f"[{self.timestamp}] [TPAC] [tx={self.tx_id}] "
+            f"{self.action} {self.package} ({self.detail}) [chain={self.chain_hash}]"
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "line": self.line_no,
+            "timestamp": self.timestamp,
+            "tx_id": self.tx_id,
+            "action": self.action,
+            "package": self.package,
+            "detail": self.detail,
+            "chain": self.chain_hash,
+        }
+
+
+def _compute_audit_chain(
+    prev_hash: str,
+    timestamp: str,
+    tx_id: str,
+    action: str,
+    package: str,
+    detail: str,
+) -> str:
+    payload = f"{prev_hash}|{timestamp}|{tx_id}|{action}|{package}|{detail}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def append_audit_log(
+    log_path: Path,
+    *,
+    tx_id: str,
+    events: Sequence[tuple[str, str, str]],
+    timestamp: str | None = None,
+) -> list[AuditEntry]:
+    """Append hash-chained entries to ``/var/log/titanpkg.log``."""
+    if not events:
+        return []
+    ts = timestamp or now_iso()
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    prev_hash = GENESIS_CHAIN_HASH
+    line_no = 0
+    if log_path.exists():
+        existing_lines = [
+            ln.strip()
+            for ln in log_path.read_text(encoding="utf-8").splitlines()
+            if ln.strip()
+        ]
+        line_no = len(existing_lines)
+        if existing_lines:
+            match = _AUDIT_LINE_RE.match(existing_lines[-1])
+            if match:
+                prev_hash = match.group("chain")
+
+    written: list[AuditEntry] = []
+    with log_path.open("a", encoding="utf-8") as handle:
+        for action, pkg, detail in events:
+            line_no += 1
+            chain_hash = _compute_audit_chain(
+                prev_hash, ts, tx_id, action, pkg, detail
+            )
+            entry = AuditEntry(
+                line_no=line_no,
+                timestamp=ts,
+                tx_id=tx_id,
+                action=action,
+                package=pkg,
+                detail=detail,
+                chain_hash=chain_hash,
+            )
+            handle.write(entry.format_line() + "\n")
+            prev_hash = chain_hash
+            written.append(entry)
+        handle.flush()
+        os.fsync(handle.fileno())
+    with contextlib.suppress(OSError):
+        os.chmod(log_path, 0o644)
+    return written
+
+
+def read_and_verify_audit_log(
+    log_path: Path,
+) -> tuple[list[AuditEntry], list[str]]:
+    """Parse ``/var/log/titanpkg.log`` and verify its cryptographic hash chain."""
+    if not log_path.exists():
+        return [], []
+
+    entries: list[AuditEntry] = []
+    errors: list[str] = []
+    prev_hash = GENESIS_CHAIN_HASH
+
+    raw_lines = log_path.read_text(encoding="utf-8").splitlines()
+    idx = 0
+    for raw in raw_lines:
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        idx += 1
+        match = _AUDIT_LINE_RE.match(stripped)
+        if not match:
+            errors.append(f"line {idx}: malformed audit log entry")
+            continue
+        ts = match.group("ts")
+        tx = match.group("tx")
+        action = match.group("action")
+        pkg = match.group("pkg")
+        detail = match.group("detail")
+        recorded_chain = match.group("chain")
+        expected_chain = _compute_audit_chain(prev_hash, ts, tx, action, pkg, detail)
+        if recorded_chain != expected_chain:
+            errors.append(
+                f"line {idx}: audit log hash-chain tamper detected for {pkg} "
+                f"(expected {expected_chain[:12]}..., got {recorded_chain[:12]}...)"
+            )
+        entries.append(
+            AuditEntry(
+                line_no=idx,
+                timestamp=ts,
+                tx_id=tx,
+                action=action,
+                package=pkg,
+                detail=detail,
+                chain_hash=recorded_chain,
+            )
+        )
+        prev_hash = recorded_chain
+
+    return entries, errors
 
 
 # ---------------------------------------------------------------------------

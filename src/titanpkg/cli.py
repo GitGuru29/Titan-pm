@@ -37,7 +37,12 @@ from .resolver import (
     resolve_remove,
     resolve_upgrade,
 )
-from .transaction import execute_transaction, transaction_lock, verify_installed
+from .transaction import (
+    execute_transaction,
+    read_and_verify_audit_log,
+    transaction_lock,
+    verify_installed,
+)
 from .vercmp import vercmp
 
 COMMANDS = (
@@ -54,6 +59,7 @@ COMMANDS = (
     "owns",
     "verify",
     "rollback",
+    "history",
     "clean",
     "doctor",
     "key",
@@ -79,6 +85,7 @@ Arch pacman-style operations (tpac / titanpkg):
   tpac -Qo <path>              query which package owns a filesystem path
   tpac -Qk [pkg...]            verify installed files against SHA-256 hashes
   tpac -Qdt                    list orphaned dependency packages
+  tpac -Qh / tpac history      view and verify hash-chained transaction audit log
 
 Documentation: docs/IMPLEMENTATION-PLAN.md
 """
@@ -272,6 +279,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_rollback.add_argument("package", help="package name")
     p_rollback.add_argument("target_version", nargs="?", default=None, help="version")
 
+    p_history = subparsers.add_parser(
+        "history",
+        help="view and verify tamper-evident transaction audit log (alias: -Qh)",
+    )
+    _add_shared_flags(p_history, is_sub=True)
+    p_history.add_argument(
+        "--limit",
+        "-n",
+        type=int,
+        default=0,
+        help="show only the last N audit log entries",
+    )
+    p_history.add_argument(
+        "--verify",
+        action="store_true",
+        default=False,
+        help="verify the SHA-256 hash chain of /var/log/titanpkg.log",
+    )
+
     p_clean = subparsers.add_parser(
         "clean", help="prune cached packages and txn logs (alias: -Sc / -Scc)"
     )
@@ -441,10 +467,12 @@ def _translate_pacman_argv(argv: Sequence[str]) -> list[str]:
         return cmd
 
     if op == "Q":
-        unknown = mod_set - {"u", "i", "l", "o", "k", "d", "t"}
+        unknown = mod_set - {"u", "i", "l", "o", "k", "d", "t", "h"}
         if unknown:
             raise UsageError(f"invalid option for -Q: -{''.join(sorted(unknown))}")
 
+        if "h" in mod_set:
+            return ["history", *passthrough]
         if "k" in mod_set:
             return ["verify", *passthrough, *positionals]
         if "o" in mod_set:
@@ -1013,6 +1041,33 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
         )
         return 0 if not hard_issues else SecurityError.exit_code
 
+    if cmd == "history":
+        entries, tamper_errors = read_and_verify_audit_log(paths.log_file)
+        shown = entries[-args.limit :] if args.limit and args.limit > 0 else entries
+        lines = [
+            f"[{e.timestamp}] [{e.tx_id}] {e.action} {e.package} ({e.detail}) "
+            f"[chain={e.chain_hash[:12]}]"
+            for e in shown
+        ]
+        if not lines and not tamper_errors:
+            lines = ["no transaction history recorded yet"]
+        if args.verify and not tamper_errors and entries:
+            lines.append(
+                f":: audit log hash chain verified ({len(entries)} entries intact)"
+            )
+        for err in tamper_errors:
+            lines.append(f"TAMPER ERROR: {err}")
+        _emit(
+            {
+                "ok": len(tamper_errors) == 0,
+                "entries": [e.to_dict() for e in shown],
+                "tamper_errors": tamper_errors,
+            },
+            json_mode=args.json_output,
+            human_lines=lines,
+        )
+        return 0 if not tamper_errors else SecurityError.exit_code
+
     if cmd == "clean":
         _require_root_if_system(paths)
         with transaction_lock(paths.lock_file):
@@ -1087,14 +1142,19 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
         hard_verify = [i for i in verify_issues if i.issue != "modified_backup"]
         if hard_verify:
             warnings.append(f"{len(hard_verify)} installed file(s) failed integrity verification")
+        _, audit_tamper = read_and_verify_audit_log(paths.log_file)
+        for t_err in audit_tamper:
+            warnings.append(f"audit log tampered: {t_err}")
 
+        is_ok = len(hard_verify) == 0 and len(audit_tamper) == 0
         report = {
-            "ok": len(hard_verify) == 0,
+            "ok": is_ok,
             "root": str(paths.root),
             "siglevel": config.siglevel,
             "installed_packages": len(db.packages),
             "enabled_repos": [r.name for r in repos],
             "has_trusted_keys": has_keys,
+            "audit_log_ok": len(audit_tamper) == 0,
             "warnings": warnings,
         }
         lines = [
@@ -1103,11 +1163,12 @@ def _dispatch(args: argparse.Namespace, config: Config) -> int:
             f"Installed packages : {len(db.packages)}",
             f"Enabled repos      : {', '.join(r.name for r in repos) or 'none'}",
             f"Trusted GPG keys   : {'present' if has_keys else 'missing'}",
+            f"Audit log chain    : {'intact' if not audit_tamper else 'TAMPERED'}",
         ]
         for w in warnings:
             lines.append(f"WARNING: {w}")
         _emit(report, json_mode=args.json_output, human_lines=lines)
-        return 0 if not hard_verify else SecurityError.exit_code
+        return 0 if is_ok else SecurityError.exit_code
 
     if cmd == "self-check":
         import py_compile

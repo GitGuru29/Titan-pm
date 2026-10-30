@@ -179,6 +179,10 @@ class Paths:
     def default_config_file(self) -> Path:
         return self.config_dir / "titanpkg.json"
 
+    @property
+    def log_file(self) -> Path:
+        return self.map("/var/log/titanpkg.log")
+
 
 @dataclass(frozen=True)
 class Config:
