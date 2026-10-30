@@ -74,11 +74,35 @@ for name in "${ORDER[@]}"; do
   manifest="$here/manifests/$name.json"
   [[ -f "$manifest" ]] || { echo "skip: no manifest for $name"; continue; }
   echo "==> building $name"
+  pkg_src="$SOURCE_ROOT"
+  tmp_stage=""
+  if [[ "$name" == "titanpkg" && ! -f "$SOURCE_ROOT/usr/local/bin/titanpkg" ]]; then
+    tmp_stage="$(mktemp -d)"
+    mkdir -p "$tmp_stage/usr/local/bin" "$tmp_stage/usr/local/lib/titanpkg" "$tmp_stage/etc/titanpkg/repos.d"
+    cp -R "$root/src/titanpkg" "$tmp_stage/usr/local/lib/titanpkg/"
+    find "$tmp_stage/usr/local/lib/titanpkg" -name '__pycache__' -type d -prune -exec rm -rf {} +
+    cat > "$tmp_stage/usr/local/bin/titanpkg" <<'LAUNCHER'
+#!/usr/bin/env python3
+import sys
+from pathlib import Path
+
+sys.path.insert(0, "/usr/local/lib/titanpkg")
+from titanpkg.cli import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+LAUNCHER
+    chmod 0755 "$tmp_stage/usr/local/bin/titanpkg"
+    cp "$root/config/titanpkg.json" "$tmp_stage/etc/titanpkg/titanpkg.json"
+    cp "$root/config/repos.d/archtitan.json.example" "$tmp_stage/etc/titanpkg/repos.d/archtitan.json"
+    pkg_src="$tmp_stage"
+  fi
   python3 "$here/build-package.py" \
     --manifest "$manifest" \
-    --source-root "$SOURCE_ROOT" \
+    --source-root "$pkg_src" \
     --out "$OUT" \
     --arch "$ARCH"
+  [[ -n "$tmp_stage" ]] && rm -rf "$tmp_stage"
 done
 
 if [[ "$BUILD_REPO" == "1" ]]; then

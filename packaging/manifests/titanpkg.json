@@ -1,0 +1,24 @@
+{
+  "name": "titanpkg",
+  "version": "0.1.0",
+  "release": 1,
+  "arch": "x86_64",
+  "description": "Standalone package manager for ArchTitan OS subsystems",
+  "url": "https://github.com/GitGuru29/Titan-pm",
+  "license": ["Apache-2.0"],
+  "depends": [],
+  "provides": ["titanpkg"],
+  "conflicts": [],
+  "replaces": [],
+  "backup": [
+    "etc/titanpkg/titanpkg.json",
+    "etc/titanpkg/repos.d/archtitan.json"
+  ],
+  "setuid": [],
+  "files": [
+    "usr/local/bin/titanpkg",
+    "usr/local/lib/titanpkg/titanpkg/**",
+    "etc/titanpkg/titanpkg.json",
+    "etc/titanpkg/repos.d/archtitan.json"
+  ]
+}

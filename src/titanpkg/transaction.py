@@ -515,6 +515,7 @@ def execute_transaction(
     *,
     offline: bool = False,
     run_scripts: bool = False,
+    nosave: bool = False,
     keyring: Keyring | None = None,
     fail_after_files: int | None = None,
 ) -> TransactionResult:
@@ -658,7 +659,8 @@ def execute_transaction(
                     if not abs_target.exists() and not abs_target.is_symlink():
                         continue
                     if (
-                        entry.path in backup_set
+                        not nosave
+                        and entry.path in backup_set
                         and entry.type == "file"
                         and abs_target.is_file()
                         and not abs_target.is_symlink()

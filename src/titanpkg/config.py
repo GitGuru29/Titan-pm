@@ -27,6 +27,7 @@ DEFAULT_ALLOWED_PREFIXES = (
     "usr/share/applications/",
     "usr/share/icons/hicolor/",
     "etc/archtitan/",
+    "etc/titanpkg/",
     "etc/titan-hwm/",
     "etc/titan-sandbox/",
     "etc/skel/",

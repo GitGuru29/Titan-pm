@@ -1,0 +1,100 @@
+.TH TITANPKG 1 "2026" "titanpkg 0.1.0" "ArchTitan OS Manual"
+.SH NAME
+titanpkg \- standalone package manager for ArchTitan OS subsystems
+.SH SYNOPSIS
+.B titanpkg
+.RI [ options ]
+.B \-Syu
+.RI [ package ...]
+.br
+.B titanpkg
+.RI [ options ]
+.B \-S
+.I package ...
+.br
+.B titanpkg
+.RI [ options ]
+.B \-Rns
+.I package ...
+.br
+.B titanpkg
+.RI [ options ]
+.I command
+.RI [ arguments ...]
+.SH DESCRIPTION
+.B titanpkg
+installs, upgrades, verifies and rolls back first-party ArchTitan OS subsystem
+packages (\fItitan-hwm\fR, \fItitan-ui\fR, \fItitan-sysmon\fR,
+\fItitan-quicksettings\fR, \fIarchtitan-guard\fR, etc.) alongside \fBpacman\fR(8)
+without modifying \fI/var/lib/pacman\fR or overwriting pacman-owned files.
+.SH PACMAN-STYLE OPERATIONS
+.TP
+.B \-Syu \fR[\fIpkg\fR...]
+Synchronize repository databases and upgrade all installed Titan subsystems.
+.TP
+.B \-S \fIpkg\fR...
+Install (or reinstall, unless \fB\-\-needed\fR is given) one or more packages.
+.TP
+.B \-Sy
+Refresh repository index databases only.
+.TP
+.B \-Su \fR[\fIpkg\fR...]
+Upgrade installed packages without refreshing repository indexes.
+.TP
+.B \-Ss \fIquery\fR
+Search package names and descriptions across enabled repositories.
+.TP
+.B \-Si \fIpkg\fR, \fB\-Qi \fIpkg\fR
+Display package metadata, dependencies and available versions.
+.TP
+.B \-Sl
+List all available packages in enabled repositories.
+.TP
+.B \-Sc\fR, \fB\-Scc
+Prune old cached package archives (\fB\-Sc\fR) or remove all cached packages
+and repository indexes (\fB\-Scc\fR).
+.TP
+.B \-R \fIpkg\fR..., \fB\-Rs \fIpkg\fR..., \fB\-Rns \fIpkg\fR...
+Remove installed packages. With \fB\-s\fR, also remove orphaned dependencies.
+With \fB\-n\fR, skip saving modified configuration files as \fI.pacsave\fR.
+.TP
+.B \-Q
+List installed Titan packages and versions.
+.TP
+.B \-Qu
+List installed Titan packages with newer versions available.
+.TP
+.B \-Ql \fIpkg\fR
+List all files owned by an installed package.
+.TP
+.B \-Qo \fIpath\fR
+Query which installed Titan package owns \fIpath\fR.
+.TP
+.B \-Qk \fR[\fIpkg\fR...]
+Verify installed files on disk against recorded SHA-256 digests and modes.
+.TP
+.B \-Qdt
+List orphaned packages installed as dependencies.
+.SH SUBCOMMANDS
+\fBupdate\fR, \fBupgrade\fR, \fBinstall\fR, \fBreinstall\fR, \fBremove\fR,
+\fBautoremove\fR, \fBlist\fR, \fBsearch\fR, \fBinfo\fR, \fBfiles\fR, \fBowns\fR,
+\fBverify\fR, \fBrollback\fR, \fBclean\fR, \fBdoctor\fR, \fBkey\fR, \fBself-check\fR.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Generic failure.
+.TP
+.B 2
+Invalid command-line usage or configuration error.
+.TP
+.B 3
+Dependency or conflict resolution failure.
+.TP
+.B 4
+Security violation (signature, SHA-256, path escape, or ownership failure).
+.TP
+.B 5
+Transaction failure (automatically rolled back).

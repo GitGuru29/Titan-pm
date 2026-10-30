@@ -125,17 +125,38 @@ Full specification: [`docs/REPOSITORY.md`](docs/REPOSITORY.md).
 
 ## CLI surface
 
+`titanpkg` supports **Arch `pacman`-style flags** (`-Syu`, `-S`, `-Rns`, `-Q`, `-Qo`, `-Qk`) as well as readable subcommands:
+
 ```text
+# Arch pacman-style flags
+titanpkg -Syu [pkg…]                sync repository indexes and upgrade all subsystems
+titanpkg -S <pkg…>                  install (or reinstall) packages (+ dependencies)
+titanpkg -Sy                        refresh repository indexes only
+titanpkg -Su [pkg…]                 upgrade installed subsystems
+titanpkg -Ss <term>                 search package names and descriptions
+titanpkg -Si <pkg> / -Qi <pkg>      metadata, versions, dependencies
+titanpkg -Sl                        list all available repository packages
+titanpkg -Sc / -Scc                 prune old (-Sc) or all (-Scc) cached packages
+titanpkg -R <pkg…> / -Rns <pkg…>    remove packages (and orphaned deps with -s)
+titanpkg -Q                         list installed packages
+titanpkg -Qu                        list upgradable packages
+titanpkg -Ql <pkg>                  list package file manifest
+titanpkg -Qo <path>                 query which Titan package owns a file
+titanpkg -Qk [pkg…]                 verify installed files against SHA-256 hashes
+titanpkg -Qdt                       list orphaned dependency packages
+
+# Equivalent subcommands
 titanpkg update                     refresh repo indexes
 titanpkg upgrade [pkg…]             upgrade all or selected installed packages
 titanpkg install <pkg…>             install packages (+ dependencies)
 titanpkg reinstall <pkg…>           reinstall the installed version
 titanpkg remove <pkg…>              remove packages (reverse-dep check)
 titanpkg autoremove                 remove orphaned dependencies
-titanpkg list [--installed|--available|--upgradable]
+titanpkg list [--installed|--available|--upgradable|--orphans]
 titanpkg search <term>              search name/description
 titanpkg info <pkg>                 metadata, versions, files
 titanpkg files <pkg>                list package file manifest
+titanpkg owns <path>                query which package owns a path
 titanpkg verify [pkg…]              check installed files against hashes
 titanpkg rollback <pkg> [version]   install a previous version
 titanpkg clean [--all]              prune cached packages
@@ -145,16 +166,18 @@ titanpkg key list                   list trusted keys
 titanpkg self-check                 verify the manager's own files
 ```
 
-Global flags: `--root PATH` (sandbox/test), `--noconfirm`, `--offline`,
-`--verbose`, `--json`.
+Global flags: `--root PATH` (sandbox/test), `--noconfirm` (`-y`), `--needed`,
+`--dry-run` (`-p`), `--offline`, `--verbose` (`-v`), `--json`.
 
 Example:
 
 ```bash
-sudo titanpkg update
-sudo titanpkg upgrade
-sudo titanpkg install titan-sysmon
-titanpkg list --upgradable
+sudo titanpkg -Syu
+sudo titanpkg -S titan-sysmon
+sudo titanpkg -Rns titan-sysmon
+titanpkg -Qu
+titanpkg -Qo /usr/local/bin/titan-hwm
+titanpkg -Qk
 sudo titanpkg rollback titan-hwm 3.1.0-1
 ```
 
@@ -296,41 +319,41 @@ Detailed breakdown: [`docs/IMPLEMENTATION-PLAN.md`](docs/IMPLEMENTATION-PLAN.md)
 
 ### Phase 1 — Core data model
 
-- [ ] `vercmp.py`: Arch-compatible `epoch:pkgver-pkgrel` comparison + tests.
-- [ ] `core/models.py`: `Package`, `FileEntry`, `Dependency`, `Transaction`.
-- [ ] `config.py`: root-aware paths, config/repo parsing, env overrides.
-- [ ] `util.py`: atomic writes, hashing, safe path handling, URL fetch.
-- [ ] Unit tests for version ordering, dependency parsing and safe paths.
+- [x] `vercmp.py`: Arch-compatible `epoch:pkgver-pkgrel` comparison + tests.
+- [x] `core/models.py`: `Package`, `FileEntry`, `Dependency`, `Transaction`.
+- [x] `config.py`: root-aware paths, config/repo parsing, env overrides.
+- [x] `util.py`: atomic writes, hashing, safe path handling, URL fetch.
+- [x] Unit tests for version ordering, dependency parsing and safe paths.
 
 ### Phase 2 — Repository + database
 
-- [ ] `repo.py`: fetch/merge indexes, cache, signature verification.
-- [ ] `db.py`: installed database, atomic updates, file ownership index.
-- [ ] `key` management (`titanpkg key import/list`).
-- [ ] `doctor` reachability/integrity checks.
-- [ ] Tests with a local `file://` repository.
+- [x] `repo.py`: fetch/merge indexes, cache, signature verification.
+- [x] `db.py`: installed database, atomic updates, file ownership index.
+- [x] `key` management (`titanpkg key import/list`).
+- [x] `doctor` reachability/integrity checks.
+- [x] Tests with a local `file://` repository.
 
 ### Phase 3 — Transactions
 
-- [ ] `resolver.py`: dependencies, provides, conflicts, replaces, system deps.
-- [ ] `transaction.py`: staging, backups, commit, rollback, `.pacnew`/`.pacsave`.
-- [ ] Scriptlet runner with environment contract.
-- [ ] Setuid policy and allowed-prefix enforcement.
-- [ ] Integration tests: install → upgrade → downgrade → remove → verify.
+- [x] `resolver.py`: dependencies, provides, conflicts, replaces, system deps.
+- [x] `transaction.py`: staging, backups, commit, rollback, `.pacnew`/`.pacsave`.
+- [x] Scriptlet runner with environment contract.
+- [x] Setuid policy and allowed-prefix enforcement.
+- [x] Integration tests: install → upgrade → downgrade → remove → verify.
 
 ### Phase 4 — CLI
 
-- [ ] `cli.py` with the full command surface and JSON output.
-- [ ] Confirmation prompts, dry-run, non-interactive mode.
-- [ ] Shell completions (bash/zsh/fish).
-- [ ] Man page.
+- [x] `cli.py` with the full command surface, `pacman`-style `-Syu`/`-S`/`-R`/`-Q` flags, and JSON output.
+- [x] Confirmation prompts, dry-run, non-interactive mode.
+- [x] Shell completions (bash/zsh/fish).
+- [x] Man page.
 
 ### Phase 5 — Packaging pipeline
 
-- [ ] `builder/build_package.py`: deterministic `.tpkg` creation.
-- [ ] `builder/build_repo.py`: index regeneration + signing.
-- [ ] Manifests for every ArchTitan subsystem that has source.
-- [ ] `build-packages.sh` with dependency ordering.
+- [x] `builder/build_package.py`: deterministic `.tpkg` creation.
+- [x] `builder/build_repo.py`: index regeneration + signing.
+- [x] Manifests for every ArchTitan subsystem that has source (+ `titanpkg` self-hosting).
+- [x] `build-packages.sh` with dependency ordering.
 - [ ] Source builds (`DESTDIR`) instead of copying `airootfs` artefacts.
 
 ### Phase 6 — Publishing
@@ -388,8 +411,8 @@ Apache-2.0. See [`LICENSE`](LICENSE).
 | Area | State |
 |---|---|
 | Design / contract | ✅ documented |
-| Core manager | ⬜ not implemented |
-| Repository builder | ⬜ not implemented |
-| ArchTitan manifests | ⬜ example only |
-| Free hosting workflow | 🟡 skeleton |
-| Tests | 🟡 scaffold |
+| Core manager (`-Syu`, transactions, resolver, DB) | ✅ implemented |
+| Repository & `.tpkg` builder | ✅ implemented |
+| ArchTitan manifests (18 packages) | ✅ implemented |
+| Free hosting workflow | ✅ ready |
+| Tests (unit + integration) | ✅ passing |

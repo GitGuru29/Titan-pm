@@ -1,0 +1,56 @@
+#compdef titanpkg
+
+_titanpkg() {
+  local -a opts commands
+  opts=(
+    '-Syu[Synchronize repositories and upgrade all Titan subsystems]'
+    '-S[Install or reinstall Titan packages]'
+    '-Sy[Synchronize Titan repository databases]'
+    '-Su[Upgrade installed Titan subsystems]'
+    '-Ss[Search repositories for matching packages]'
+    '-Si[Display repository package information]'
+    '-Sl[List all available packages in repositories]'
+    '-Sc[Clean old cached packages]'
+    '-Scc[Clean all cached packages and indexes]'
+    '-R[Remove installed packages]'
+    '-Rs[Remove packages and orphaned dependencies]'
+    '-Rns[Remove packages, orphans, and skip .pacsave]'
+    '-Q[List installed packages]'
+    '-Qu[List upgradable packages]'
+    '-Qi[Display installed package information]'
+    '-Ql[List files owned by an installed package]'
+    '-Qo[Query which Titan package owns a file]'
+    '-Qk[Verify installed files against SHA-256 hashes]'
+    '-Qdt[List orphaned dependency packages]'
+    '--root[Operate on a sandbox root]:path:_files -/'
+    '--config[Override path to titanpkg.json]:file:_files'
+    '(-y --noconfirm)'{-y,--noconfirm}'[Assume yes for all prompts]'
+    '--needed[Do not reinstall up-to-date targets]'
+    '(-p --dry-run)'{-p,--dry-run}'[Print resolved plan and exit]'
+    '--offline[Use cached indexes and packages only]'
+    '--json[Emit machine-readable JSON output]'
+  )
+  commands=(
+    'update:Refresh repository indexes (-Sy)'
+    'upgrade:Upgrade installed packages (-Su / -Syu)'
+    'install:Install packages (-S)'
+    'reinstall:Reinstall installed packages'
+    'remove:Remove installed packages (-R)'
+    'autoremove:Remove orphaned dependencies (-Qdt)'
+    'list:List packages (-Q / -Sl / -Qu)'
+    'search:Search repositories (-Ss)'
+    'info:Show package metadata (-Si / -Qi)'
+    'files:List package files (-Ql)'
+    'owns:Query file owner (-Qo)'
+    'verify:Verify installed files (-Qk)'
+    'rollback:Roll back a package to an older version'
+    'clean:Prune cached packages (-Sc)'
+    'doctor:Run security and config diagnostics'
+    'key:Manage trusted repository GPG keys'
+    'self-check:Verify titanpkg modules'
+  )
+  _arguments -s $opts '*:command:->cmd' && return 0
+  _describe -t commands 'titanpkg command' commands
+}
+
+_titanpkg "$@"
