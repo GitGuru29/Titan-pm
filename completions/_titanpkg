@@ -1,4 +1,4 @@
-#compdef tpac titanpkg
+#compdef titanpkg
 
 _titanpkg() {
   local -a opts commands
